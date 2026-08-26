@@ -24,7 +24,7 @@ export function Button({
 }: PropsWithChildren<ButtonProps>) {
   return (
     <button
-      className={`min-h-12 rounded-xl px-4 py-2.5 text-sm font-bold transition disabled:cursor-not-allowed disabled:opacity-50 ${variantClasses[variant]} ${fullWidth ? 'w-full' : ''} ${className}`}
+      className={`min-h-12 rounded-xl px-4 py-2.5 text-sm font-bold transition duration-150 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-emerald-400 active:scale-[0.98] disabled:cursor-not-allowed disabled:opacity-50 disabled:active:scale-100 ${variantClasses[variant]} ${fullWidth ? 'w-full' : ''} ${className}`}
       {...props}
     >
       {children}

@@ -1,32 +1,67 @@
-import { Link, useParams } from 'react-router-dom'
+import { useState } from 'react'
+import { Link, useNavigate, useParams } from 'react-router-dom'
+import { Button } from '../components/Button'
+import { ConfirmModal } from '../components/ConfirmModal'
 import { EmptyState } from '../components/EmptyState'
 import { PageHeader } from '../components/PageHeader'
 import { StatusBadge } from '../components/StatusBadge'
 import { BankSummaryCards } from '../features/sessions/BankSummaryCards'
+import { SessionSettlementSummary } from '../features/sessions/SessionSettlementSummary'
+import { TransactionsModal } from '../features/sessions/TransactionsModal'
 import { useAppData } from '../hooks/useAppData'
 import type { Player } from '../types/domain'
-import { calculatePlayerSessionSummary } from '../utils/calculations'
-import { formatDate, formatMoney } from '../utils/format'
+import { calculatePlayerSettlement } from '../utils/calculations'
+import { formatDate, formatDateTime, formatMoney } from '../utils/format'
 
 export function SessionDetailPage() {
   const { sessionId } = useParams()
-  const { sessions, sessionPlayers, players, transactions } = useAppData()
+  const {
+    sessions,
+    sessionPlayers,
+    players,
+    transactions,
+    payoutAllocations,
+    paymentOffsets,
+    deleteSession,
+  } = useAppData()
+  const navigate = useNavigate()
+  const [showDelete, setShowDelete] = useState(false)
+  const [transactionPlayer, setTransactionPlayer] = useState<Player | null>(null)
+  const [isSaving, setIsSaving] = useState(false)
+  const [error, setError] = useState('')
   const session = sessions.find((item) => item.id === sessionId)
 
   if (!session) {
     return (
-      <EmptyState title="Session not found" description="This session does not exist in the current data store." action={<Link to="/history" className="text-emerald-300">Back to history</Link>} />
+      <EmptyState
+        title="Session not found"
+        description="This session does not exist in the current data store."
+        action={<Link to="/history" className="text-emerald-300">Back to history</Link>}
+      />
     )
   }
 
-  const sessionTransactions = transactions.filter((item) => item.sessionId === session.id)
-  const participants = sessionPlayers
-    .filter((item) => item.sessionId === session.id)
+  const sessionTransactions = transactions.filter(
+    (item) => item.sessionId === session.id,
+  )
+  const sessionParticipants = sessionPlayers.filter(
+    (item) => item.sessionId === session.id,
+  )
+  const sessionPayouts = payoutAllocations.filter(
+    (item) => item.sessionId === session.id,
+  )
+  const sessionOffsets = paymentOffsets.filter(
+    (item) => item.sessionId === session.id,
+  )
+  const participants = sessionParticipants
     .map((participation) => ({
       participation,
       player: players.find((player) => player.id === participation.playerId),
     }))
     .filter((item): item is typeof item & { player: Player } => Boolean(item.player))
+  const incompletePlayers = participants.filter(
+    (item) => item.participation.status !== 'CASHED_OUT',
+  )
 
   return (
     <div className="space-y-7">
@@ -35,37 +70,165 @@ export function SessionDetailPage() {
         eyebrow="Session record"
         title={session.name}
         description={`${formatDate(session.date)} · ${formatMoney(session.buyInAmount)} = ${session.chipsPerBuyIn} chips`}
-        action={<StatusBadge status={session.status} />}
+        action={
+          <div className="flex flex-wrap items-center gap-2">
+            <StatusBadge status={session.status} />
+            <Button variant="danger" onClick={() => setShowDelete(true)}>Delete session</Button>
+          </div>
+        }
       />
-      <BankSummaryCards transactions={sessionTransactions} />
+
+      <BankSummaryCards
+        transactions={sessionTransactions}
+        payoutAllocations={sessionPayouts}
+        paymentOffsets={sessionOffsets}
+      />
+
+      <SessionSettlementSummary
+        players={players}
+        sessionPlayers={sessionParticipants}
+        transactions={sessionTransactions}
+        payoutAllocations={sessionPayouts}
+        paymentOffsets={sessionOffsets}
+      />
+
+      {incompletePlayers.length ? (
+        <p className="rounded-xl border border-amber-400/20 bg-amber-400/5 p-4 text-sm text-amber-200">
+          Cash-out data is incomplete for {incompletePlayers.map((item) => item.player.nickname).join(', ')}. Older sessions remain visible without fabricated results.
+        </p>
+      ) : null}
+
       <section>
         <h2 className="mb-3 text-sm font-bold uppercase tracking-wider text-slate-500">Players</h2>
-        <div className="overflow-hidden rounded-2xl border border-slate-800 bg-slate-900">
+        <div className="space-y-3">
           {participants.map(({ player, participation }) => {
-            const summary = calculatePlayerSessionSummary(
-              sessionTransactions.filter((item) => item.playerId === player.id),
+            const playerTransactions = sessionTransactions.filter(
+              (item) => item.playerId === player.id,
             )
+            const playerPayouts = sessionPayouts.filter(
+              (item) => item.sessionPlayerId === participation.id,
+            )
+            const playerOffsets = sessionOffsets.filter(
+              (item) => item.sessionPlayerId === participation.id,
+            )
+            const settlement = calculatePlayerSettlement(
+              participation,
+              playerTransactions,
+              playerPayouts,
+              playerOffsets,
+            )
+            const completed = participation.status === 'CASHED_OUT'
             return (
-              <div key={player.id} className="grid grid-cols-[1fr_auto] gap-4 border-b border-slate-800 p-4 last:border-0 sm:grid-cols-[1fr_auto_auto] sm:items-center">
-                <div>
-                  <p className="font-bold text-white">{player.nickname}</p>
-                  <p className="mt-1 text-xs text-slate-500">{summary.transactionCount} transactions</p>
+              <article key={player.id} className="rounded-2xl border border-slate-800 bg-slate-900 p-4 sm:p-5">
+                <div className="flex flex-wrap items-start justify-between gap-3">
+                  <div>
+                    <p className="font-bold text-white">{player.nickname}</p>
+                    <p className="mt-1 text-xs text-slate-500">
+                      {settlement.transactionCount} transactions
+                    </p>
+                  </div>
+                  {completed ? (
+                    <p className={`text-lg font-bold ${settlement.pokerResult >= 0 ? 'text-emerald-300' : 'text-red-300'}`}>
+                      {settlement.pokerResult > 0 ? '+' : ''}{formatMoney(settlement.pokerResult)}
+                    </p>
+                  ) : (
+                    <span className="rounded-full bg-amber-400/10 px-2 py-1 text-xs font-bold text-amber-300">Incomplete</span>
+                  )}
                 </div>
-                <div className="text-right">
-                  <p className="text-xs text-slate-500">Buy-in</p>
-                  <p className="font-bold text-white">{formatMoney(summary.totalBuyIn)}</p>
-                </div>
-                <div className="col-span-2 rounded-lg bg-slate-950/60 px-3 py-2 text-center text-xs text-slate-500 sm:col-span-1">
-                  {participation.cashOutAmount === null ? 'Cash-out not recorded' : `Cash-out ${formatMoney(participation.cashOutAmount)}`}
-                </div>
-              </div>
+                <dl className="mt-4 grid grid-cols-2 gap-3 border-t border-slate-800 pt-4 text-sm sm:grid-cols-4">
+                  <PlayerValue label="Buy-ins" value={formatMoney(settlement.totalBuyIn)} />
+                  <PlayerValue label="Received" value={formatMoney(settlement.receivedAmount)} />
+                  <PlayerValue label="Outstanding" value={formatMoney(settlement.remainingOutstanding)} warning={settlement.remainingOutstanding > 0} />
+                  <PlayerValue label="Final chips" value={completed ? String(participation.cashOutChips ?? 0) : 'Not recorded'} />
+                  <PlayerValue label="Cashed out" value={completed && participation.cashedOutAt ? formatDateTime(participation.cashedOutAt) : 'Not recorded'} />
+                  <PlayerValue label="Gross cash-out" value={completed ? formatMoney(settlement.grossCashOut) : 'Not recorded'} />
+                  <PlayerValue label="Pending offset" value={completed ? formatMoney(settlement.pendingOffset) : 'Not recorded'} />
+                  <PlayerValue label="Net payout" value={completed ? formatMoney(settlement.netPayout) : 'Not recorded'} />
+                  <PlayerValue
+                    label="Payout methods"
+                    value={completed ? payoutDescription(settlement.payoutAmounts) : 'Not recorded'}
+                  />
+                </dl>
+                <button
+                  type="button"
+                  onClick={() => setTransactionPlayer(player)}
+                  className="mt-4 min-h-10 text-sm font-bold text-emerald-300 hover:text-emerald-200"
+                >
+                  View transactions
+                </button>
+              </article>
             )
           })}
         </div>
       </section>
-      <p className="rounded-xl border border-slate-800 bg-slate-900/60 p-4 text-sm text-slate-400">
-        Cash-outs, profit/loss, and bank reconciliation are reserved for the settlement phase. Current totals are derived from transaction records.
-      </p>
+
+      {error ? <p role="alert" className="rounded-xl border border-red-900/50 bg-red-950/30 p-3 text-sm text-red-200">{error}</p> : null}
+      {transactionPlayer ? (
+        <TransactionsModal
+          player={transactionPlayer}
+          transactions={sessionTransactions.filter(
+            (item) => item.playerId === transactionPlayer.id,
+          )}
+          paymentOffsets={sessionOffsets.filter((offset) =>
+            sessionTransactions.some(
+              (transaction) =>
+                transaction.id === offset.transactionId &&
+                transaction.playerId === transactionPlayer.id,
+            ),
+          )}
+          onClose={() => setTransactionPlayer(null)}
+        />
+      ) : null}
+      {showDelete ? (
+        <ConfirmModal
+          title={`Delete “${session.name}”?`}
+          description="This permanently deletes the session and all participant, transaction, cash-out, offset, and payout records. This action cannot be undone."
+          confirmLabel="Delete session"
+          onConfirm={() => {
+            setIsSaving(true)
+            setError('')
+            void deleteSession(session.id)
+              .then(() => navigate('/history'))
+              .catch((caughtError) => setError(caughtError instanceof Error ? caughtError.message : 'Unable to delete session.'))
+              .finally(() => {
+                setIsSaving(false)
+                setShowDelete(false)
+              })
+          }}
+          onClose={() => setShowDelete(false)}
+          isSaving={isSaving}
+          danger
+        />
+      ) : null}
     </div>
   )
+}
+
+function PlayerValue({
+  label,
+  value,
+  warning = false,
+}: {
+  label: string
+  value: string
+  warning?: boolean
+}) {
+  return (
+    <div>
+      <dt className="text-xs text-slate-500">{label}</dt>
+      <dd className={`mt-1 font-bold ${warning ? 'text-amber-300' : 'text-white'}`}>
+        {value}
+      </dd>
+    </div>
+  )
+}
+
+function payoutDescription(amounts: Record<'CASH' | 'CARD' | 'OTHER', number>) {
+  const parts = (['CASH', 'CARD', 'OTHER'] as const)
+    .filter((method) => amounts[method] > 0)
+    .map(
+      (method) =>
+        `${method === 'OTHER' ? 'Other (legacy)' : method[0] + method.slice(1).toLowerCase()} ${formatMoney(amounts[method])}`,
+    )
+  return parts.length ? parts.join(' · ') : formatMoney(0)
 }

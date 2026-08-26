@@ -29,6 +29,7 @@ export interface Player {
   workspaceId: string
   nickname: string
   createdAt: string
+  archivedAt: string | null
 }
 
 export interface Session {
@@ -52,7 +53,30 @@ export interface SessionPlayer {
   joinedAt: string
   cashOutChips: number | null
   cashOutAmount: number | null
+  cashedOutAt: string | null
   status: SessionPlayerStatus
+}
+
+export interface PayoutAllocation {
+  id: string
+  workspaceId: string
+  sessionId: string
+  sessionPlayerId: string
+  paymentMethod: PaymentMethod
+  amount: number
+  createdAt: string
+  updatedAt: string
+}
+
+export interface PaymentOffset {
+  id: string
+  workspaceId: string
+  sessionId: string
+  sessionPlayerId: string
+  transactionId: string
+  amount: number
+  createdAt: string
+  updatedAt: string
 }
 
 export interface Transaction {
@@ -74,6 +98,8 @@ export interface AppData {
   sessions: Session[]
   sessionPlayers: SessionPlayer[]
   transactions: Transaction[]
+  payoutAllocations: PayoutAllocation[]
+  paymentOffsets: PaymentOffset[]
 }
 
 export interface NewSessionInput {
@@ -82,6 +108,14 @@ export interface NewSessionInput {
   buyInAmount: number
   chipsPerBuyIn: number
   playerIds: string[]
+  paymentMethod: PaymentMethod
+  paymentStatus: PaymentStatus
+}
+
+export interface CashOutInput {
+  sessionPlayerId: string
+  finalChips: number
+  payoutAmounts: Record<PaymentMethod, number>
 }
 
 export interface NewTransactionInput {

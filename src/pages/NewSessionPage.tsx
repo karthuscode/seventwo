@@ -4,15 +4,20 @@ import { Button } from '../components/Button'
 import { PageHeader } from '../components/PageHeader'
 import { AddPlayerModal } from '../features/players/AddPlayerModal'
 import { useAppData } from '../hooks/useAppData'
+import type { PaymentMethod, PaymentStatus } from '../types/domain'
 import { todayAsInputValue } from '../utils/format'
+import { STANDARD_PAYMENT_METHODS } from '../utils/paymentMethods'
 
 export function NewSessionPage() {
   const navigate = useNavigate()
   const { players, createSession } = useAppData()
+  const activePlayers = players.filter((player) => !player.archivedAt)
   const [name, setName] = useState('Friday Night Poker')
   const [date, setDate] = useState(todayAsInputValue())
   const [buyInAmount, setBuyInAmount] = useState(30)
   const [chipsPerBuyIn, setChipsPerBuyIn] = useState(100)
+  const [paymentMethod, setPaymentMethod] = useState<PaymentMethod>('CASH')
+  const [paymentStatus, setPaymentStatus] = useState<PaymentStatus>('PENDING')
   const [selectedPlayerIds, setSelectedPlayerIds] = useState<string[]>([])
   const [showAddPlayer, setShowAddPlayer] = useState(false)
   const [isSaving, setIsSaving] = useState(false)
@@ -37,6 +42,8 @@ export function NewSessionPage() {
         buyInAmount,
         chipsPerBuyIn,
         playerIds: selectedPlayerIds,
+        paymentMethod,
+        paymentStatus,
       })
       navigate(`/sessions/${session.id}/active`)
     } catch (caughtError) {
@@ -115,6 +122,38 @@ export function NewSessionPage() {
               {buyInAmount || 0} RON = {chipsPerBuyIn || 0} chips
             </p>
           </div>
+          <fieldset>
+            <legend className="label">Initial buy-in method</legend>
+            <div className="segmented-grid grid-cols-2">
+              {STANDARD_PAYMENT_METHODS.map((method) => (
+                <label key={method} className="segmented-option">
+                  <input
+                    type="radio"
+                    className="sr-only"
+                    checked={paymentMethod === method}
+                    onChange={() => setPaymentMethod(method)}
+                  />
+                  <span>{method[0] + method.slice(1).toLowerCase()}</span>
+                </label>
+              ))}
+            </div>
+          </fieldset>
+          <fieldset>
+            <legend className="label">Initial payment status</legend>
+            <div className="segmented-grid grid-cols-2">
+              {(['PENDING', 'RECEIVED'] as PaymentStatus[]).map((status) => (
+                <label key={status} className="segmented-option">
+                  <input
+                    type="radio"
+                    className="sr-only"
+                    checked={paymentStatus === status}
+                    onChange={() => setPaymentStatus(status)}
+                  />
+                  <span>{status[0] + status.slice(1).toLowerCase()}</span>
+                </label>
+              ))}
+            </div>
+          </fieldset>
         </section>
 
         <section className="rounded-2xl border border-slate-800 bg-slate-900 p-5 sm:p-6">
@@ -131,8 +170,8 @@ export function NewSessionPage() {
           </div>
 
           <div className="mt-5 space-y-2">
-            {players.length ? (
-              [...players]
+            {activePlayers.length ? (
+              [...activePlayers]
                 .sort((a, b) => a.nickname.localeCompare(b.nickname))
                 .map((player) => (
                   <label
@@ -164,7 +203,7 @@ export function NewSessionPage() {
           </div>
 
           <p className="mt-5 text-xs leading-5 text-slate-500">
-            Each selected player starts with one cash buy-in marked received. You can correct its payment details from the active session.
+            Each selected player starts with one {paymentMethod.toLowerCase()} buy-in marked {paymentStatus.toLowerCase()}. You can correct it from the active session.
           </p>
           {error ? <p className="mt-3 text-sm text-red-300">{error}</p> : null}
           <Button

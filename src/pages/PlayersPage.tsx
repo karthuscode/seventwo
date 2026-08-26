@@ -47,6 +47,11 @@ export function PlayersPage() {
                 <h2 className="mt-5 text-lg font-bold text-white">
                   {player.nickname}
                 </h2>
+                {player.archivedAt ? (
+                  <span className="mt-2 inline-flex rounded-full bg-slate-700/60 px-2 py-1 text-[11px] font-bold uppercase tracking-wider text-slate-400">
+                    Archived
+                  </span>
+                ) : null}
                 <div className="mt-3 flex gap-5 text-xs text-slate-500">
                   <span>{stats.sessionsPlayed} sessions</span>
                   <span>{formatMoney(stats.totalBuyIn)} buy-in</span>

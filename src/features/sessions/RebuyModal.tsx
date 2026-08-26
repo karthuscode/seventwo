@@ -8,6 +8,7 @@ import type {
   Player,
   Session,
 } from '../../types/domain'
+import { STANDARD_PAYMENT_METHODS } from '../../utils/paymentMethods'
 
 interface RebuyModalProps {
   player: Player
@@ -22,7 +23,7 @@ export function RebuyModal({ player, session, onClose }: RebuyModalProps) {
   const [paymentMethod, setPaymentMethod] =
     useState<PaymentMethod>('CASH')
   const [paymentStatus, setPaymentStatus] =
-    useState<PaymentStatus>('RECEIVED')
+    useState<PaymentStatus>('PENDING')
   const [isSaving, setIsSaving] = useState(false)
   const [error, setError] = useState('')
 
@@ -82,8 +83,8 @@ export function RebuyModal({ player, session, onClose }: RebuyModalProps) {
 
         <fieldset>
           <legend className="label">Payment method</legend>
-          <div className="segmented-grid grid-cols-3">
-            {(['CASH', 'CARD', 'OTHER'] as PaymentMethod[]).map((method) => (
+          <div className="segmented-grid grid-cols-2">
+            {STANDARD_PAYMENT_METHODS.map((method) => (
               <label key={method} className="segmented-option">
                 <input
                   type="radio"

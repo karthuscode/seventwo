@@ -14,6 +14,15 @@ export function formatDate(date: string): string {
   }).format(new Date(`${date}T12:00:00`))
 }
 
+export function formatDateTime(dateTime: string): string {
+  return new Intl.DateTimeFormat('en-GB', {
+    day: 'numeric',
+    month: 'short',
+    hour: '2-digit',
+    minute: '2-digit',
+  }).format(new Date(dateTime))
+}
+
 export function todayAsInputValue(): string {
   const now = new Date()
   const timezoneOffset = now.getTimezoneOffset() * 60_000

@@ -6,6 +6,7 @@ import {
 } from 'react'
 import type {
   AppData,
+  CashOutInput,
   NewSessionInput,
   NewTransactionInput,
   Player,
@@ -21,6 +22,16 @@ import {
 import { LocalStorageRepository } from '../../services/localStorageRepository'
 import { useWorkspaces } from '../../hooks/useWorkspaces'
 import { AppDataContext } from './AppDataContext'
+import {
+  buildPaymentOffsetDraft,
+  calculateChipCirculation,
+  calculateGrossCashOut,
+  calculatePayoutRemaining,
+  roundMoney,
+  sumMoney,
+  toMinorUnits,
+} from '../../utils/calculations'
+import { isStandardPaymentMethod } from '../../utils/paymentMethods'
 
 export function AppDataProvider({ children }: PropsWithChildren) {
   const { repository, selectedWorkspace: workspace } = useWorkspaces()
@@ -65,8 +76,9 @@ export function AppDataProvider({ children }: PropsWithChildren) {
     try {
       await action()
     } catch (caughtError) {
-      setError(toErrorMessage(caughtError))
-      throw caughtError
+      const normalizedError = normalizeMutationError(caughtError)
+      setError(normalizedError.message)
+      throw normalizedError
     } finally {
       setIsSaving(false)
     }
@@ -82,12 +94,16 @@ export function AppDataProvider({ children }: PropsWithChildren) {
     error,
     canImportLocalData: Boolean(legacyData),
     addPlayer: async (nickname: string) => {
+      const trimmedNickname = nickname.trim()
+      if (!trimmedNickname) throw new Error('Enter a nickname.')
       const player: Player = {
         id: crypto.randomUUID(),
         workspaceId: workspace.id,
-        nickname: nickname.trim(),
+        nickname: trimmedNickname,
         createdAt: new Date().toISOString(),
+        archivedAt: null,
       }
+      ensurePlayerNicknameAvailable(data.players, player.nickname)
       await runMutation(async () => repository.addPlayer(player))
       setData((current) => ({
         ...current,
@@ -95,7 +111,60 @@ export function AppDataProvider({ children }: PropsWithChildren) {
       }))
       return player
     },
+    updatePlayer: async (player: Player) => {
+      const currentPlayer = data.players.find((item) => item.id === player.id)
+      if (!currentPlayer) throw new Error('Player not found.')
+      const updatedPlayer = {
+        ...currentPlayer,
+        ...player,
+        workspaceId: workspace.id,
+        nickname: player.nickname.trim(),
+      }
+      if (!updatedPlayer.nickname) throw new Error('Enter a nickname.')
+      ensurePlayerNicknameAvailable(
+        data.players,
+        updatedPlayer.nickname,
+        updatedPlayer.id,
+      )
+      await runMutation(async () => repository.updatePlayer(updatedPlayer))
+      setData((current) => ({
+        ...current,
+        players: current.players.map((item) =>
+          item.id === updatedPlayer.id ? updatedPlayer : item,
+        ),
+      }))
+    },
+    deletePlayer: async (playerId: string) => {
+      const player = data.players.find((item) => item.id === playerId)
+      if (!player) throw new Error('Player not found.')
+      const hasHistory =
+        data.sessionPlayers.some((item) => item.playerId === playerId) ||
+        data.transactions.some((item) => item.playerId === playerId)
+      if (hasHistory) {
+        throw new Error(
+          'This player has session history. Archive the player instead of deleting them.',
+        )
+      }
+      await runMutation(() => repository.deletePlayer(playerId, workspace.id))
+      setData((current) => ({
+        ...current,
+        players: current.players.filter((item) => item.id !== playerId),
+      }))
+    },
     createSession: async (input: NewSessionInput) => {
+      ensurePrimaryPaymentMethod(input.paymentMethod)
+      const selectedIds = new Set(input.playerIds)
+      if (selectedIds.size !== input.playerIds.length) {
+        throw new Error('A player can only be selected once per session.')
+      }
+      const selectedPlayers = input.playerIds.map((playerId) =>
+        data.players.find((player) => player.id === playerId),
+      )
+      if (
+        selectedPlayers.some((player) => !player || Boolean(player.archivedAt))
+      ) {
+        throw new Error('Only active saved players can join a new session.')
+      }
       const now = new Date().toISOString()
       const session: Session = {
         id: crypto.randomUUID(),
@@ -119,6 +188,7 @@ export function AppDataProvider({ children }: PropsWithChildren) {
           joinedAt: now,
           cashOutChips: null,
           cashOutAmount: null,
+          cashedOutAt: null,
           status: 'ACTIVE',
         })),
         transactions: input.playerIds.map((playerId) => ({
@@ -129,8 +199,8 @@ export function AppDataProvider({ children }: PropsWithChildren) {
           type: 'BUY_IN',
           amount: session.buyInAmount,
           chips: session.chipsPerBuyIn,
-          paymentMethod: 'CASH',
-          paymentStatus: 'RECEIVED',
+          paymentMethod: input.paymentMethod,
+          paymentStatus: input.paymentStatus,
           createdAt: now,
           updatedAt: now,
         })),
@@ -144,7 +214,318 @@ export function AppDataProvider({ children }: PropsWithChildren) {
       }))
       return session
     },
+    finishSession: async (sessionId: string) => {
+      const session = data.sessions.find((item) => item.id === sessionId)
+      if (!session) throw new Error('Session not found.')
+      if (session.status === 'FINISHED') return
+      const activeParticipants = data.sessionPlayers.filter(
+        (item) =>
+          item.sessionId === sessionId &&
+          (item.status !== 'CASHED_OUT' ||
+            item.cashOutChips === null ||
+            item.cashOutAmount === null ||
+            item.cashedOutAt === null),
+      )
+      if (activeParticipants.length) {
+        const names = activeParticipants.map(
+          (participant) =>
+            data.players.find((player) => player.id === participant.playerId)
+              ?.nickname ?? 'Unknown player',
+        )
+        throw new Error(
+          `${activeParticipants.length} ${activeParticipants.length === 1 ? 'player has' : 'players have'} not been cashed out: ${names.join(', ')}.`,
+        )
+      }
+      const finishedSession = {
+        ...session,
+        status: 'FINISHED' as const,
+        finishedAt: new Date().toISOString(),
+      }
+      await runMutation(() => repository.updateSession(finishedSession))
+      setData((current) => ({
+        ...current,
+        sessions: current.sessions.map((item) =>
+          item.id === sessionId ? finishedSession : item,
+        ),
+      }))
+    },
+    deleteSession: async (sessionId: string) => {
+      const session = data.sessions.find((item) => item.id === sessionId)
+      if (!session) throw new Error('Session not found.')
+      await runMutation(() => repository.deleteSession(sessionId, workspace.id))
+      setData((current) => ({
+        ...current,
+        sessions: current.sessions.filter((item) => item.id !== sessionId),
+        sessionPlayers: current.sessionPlayers.filter(
+          (item) => item.sessionId !== sessionId,
+        ),
+        transactions: current.transactions.filter(
+          (item) => item.sessionId !== sessionId,
+        ),
+        payoutAllocations: current.payoutAllocations.filter(
+          (item) => item.sessionId !== sessionId,
+        ),
+        paymentOffsets: current.paymentOffsets.filter(
+          (item) => item.sessionId !== sessionId,
+        ),
+      }))
+    },
+    addPlayerToSession: async (input: NewTransactionInput) => {
+      ensurePrimaryPaymentMethod(input.paymentMethod)
+      const session = data.sessions.find((item) => item.id === input.sessionId)
+      if (!session || session.status !== 'ACTIVE') {
+        throw new Error('Only an active session can accept a new player.')
+      }
+      const player = data.players.find((item) => item.id === input.playerId)
+      if (!player || player.archivedAt) {
+        throw new Error('Choose an active saved player.')
+      }
+      if (
+        data.sessionPlayers.some(
+          (item) =>
+            item.sessionId === input.sessionId &&
+            item.playerId === input.playerId,
+        )
+      ) {
+        throw new Error('This player is already in the session.')
+      }
+      const now = new Date().toISOString()
+      const sessionPlayer = {
+        id: crypto.randomUUID(),
+        workspaceId: workspace.id,
+        sessionId: input.sessionId,
+        playerId: input.playerId,
+        joinedAt: now,
+        cashOutChips: null,
+        cashOutAmount: null,
+        cashedOutAt: null,
+        status: 'ACTIVE' as const,
+      }
+      const transaction: Transaction = {
+        ...input,
+        id: crypto.randomUUID(),
+        workspaceId: workspace.id,
+        type: 'BUY_IN',
+        createdAt: now,
+        updatedAt: now,
+      }
+      await runMutation(() =>
+        repository.addSessionPlayer({ sessionPlayer, transaction }),
+      )
+      setData((current) => ({
+        ...current,
+        sessionPlayers: [...current.sessionPlayers, sessionPlayer],
+        transactions: [...current.transactions, transaction],
+      }))
+    },
+    removeSessionPlayer: async (sessionPlayerId: string) => {
+      const sessionPlayer = data.sessionPlayers.find(
+        (item) => item.id === sessionPlayerId,
+      )
+      if (!sessionPlayer) throw new Error('Session player not found.')
+      const session = data.sessions.find(
+        (item) => item.id === sessionPlayer.sessionId,
+      )
+      if (!session || session.status !== 'ACTIVE') {
+        throw new Error('Players can only be removed from an active session.')
+      }
+      const hasTransactions = data.transactions.some(
+        (item) =>
+          item.sessionId === sessionPlayer.sessionId &&
+          item.playerId === sessionPlayer.playerId,
+      )
+      if (hasTransactions) {
+        throw new Error(
+          'This player already has financial history in the session and cannot be removed.',
+        )
+      }
+      await runMutation(() =>
+        repository.removeSessionPlayer(sessionPlayerId, workspace.id),
+      )
+      setData((current) => ({
+        ...current,
+        sessionPlayers: current.sessionPlayers.filter(
+          (item) => item.id !== sessionPlayerId,
+        ),
+        payoutAllocations: current.payoutAllocations.filter(
+          (item) => item.sessionPlayerId !== sessionPlayerId,
+        ),
+        paymentOffsets: current.paymentOffsets.filter(
+          (item) => item.sessionPlayerId !== sessionPlayerId,
+        ),
+      }))
+    },
+    saveCashOut: async (input: CashOutInput) => {
+      const sessionPlayer = data.sessionPlayers.find(
+        (item) => item.id === input.sessionPlayerId,
+      )
+      if (!sessionPlayer) throw new Error('Session player not found.')
+      const session = data.sessions.find(
+        (item) => item.id === sessionPlayer.sessionId,
+      )
+      if (!session || session.status !== 'ACTIVE') {
+        throw new Error('Cash-out corrections require an active session.')
+      }
+      if (!Number.isInteger(input.finalChips) || input.finalChips < 0) {
+        throw new Error('Final chips must be a whole number of zero or more.')
+      }
+
+      const sessionTransactions = data.transactions.filter(
+        (item) => item.sessionId === session.id,
+      )
+      const sessionParticipants = data.sessionPlayers.filter(
+        (item) => item.sessionId === session.id,
+      )
+      const { maximumCashOutChips } = calculateChipCirculation(
+        sessionTransactions,
+        sessionParticipants,
+        sessionPlayer.id,
+      )
+      if (input.finalChips > maximumCashOutChips) {
+        throw new Error(
+          `Only ${maximumCashOutChips} chips remain in circulation.`,
+        )
+      }
+
+      const playerTransactions = data.transactions.filter(
+        (item) =>
+          item.sessionId === session.id &&
+          item.playerId === sessionPlayer.playerId,
+      )
+      const existingOffsets = data.paymentOffsets.filter(
+        (item) => item.sessionPlayerId === sessionPlayer.id,
+      )
+      const grossCashOut = calculateGrossCashOut(
+        input.finalChips,
+        session.buyInAmount,
+        session.chipsPerBuyIn,
+      )
+      const offsetDraft = buildPaymentOffsetDraft(
+        grossCashOut,
+        playerTransactions,
+        existingOffsets,
+      )
+      const pendingOffset = sumMoney(offsetDraft.map((item) => item.amount))
+      const netPayout = grossCashOut - pendingOffset
+      const payoutMethods = ['CASH', 'CARD', 'OTHER'] as const
+      if (
+        payoutMethods.some(
+          (method) =>
+            !Number.isFinite(input.payoutAmounts[method]) ||
+            input.payoutAmounts[method] < 0,
+        )
+      ) {
+        throw new Error('Payout amounts cannot be negative.')
+      }
+      const normalizedPayoutAmounts = {
+        CASH: roundMoney(input.payoutAmounts.CASH),
+        CARD: roundMoney(input.payoutAmounts.CARD),
+        OTHER: roundMoney(input.payoutAmounts.OTHER),
+      }
+      if (
+        toMinorUnits(
+          calculatePayoutRemaining(netPayout, normalizedPayoutAmounts),
+        ) !== 0
+      ) {
+        throw new Error('Payout allocations must equal the net payout.')
+      }
+
+      const now = new Date().toISOString()
+      const updatedSessionPlayer = {
+        ...sessionPlayer,
+        cashOutChips: input.finalChips,
+        cashOutAmount: grossCashOut,
+        cashedOutAt: sessionPlayer.cashedOutAt ?? now,
+        status: 'CASHED_OUT' as const,
+      }
+      const existingAllocations = data.payoutAllocations.filter(
+        (item) => item.sessionPlayerId === sessionPlayer.id,
+      )
+      const existingOtherAmount = sumMoney(
+        existingAllocations
+          .filter((item) => item.paymentMethod === 'OTHER')
+          .map((item) => item.amount),
+      )
+      if (
+        toMinorUnits(normalizedPayoutAmounts.OTHER) >
+        toMinorUnits(existingOtherAmount)
+      ) {
+        throw new Error('New payouts can only use Cash or Card.')
+      }
+      const payoutAllocations = payoutMethods.flatMap((paymentMethod) => {
+        const amount = normalizedPayoutAmounts[paymentMethod]
+        if (toMinorUnits(amount) === 0) return []
+        const existing = existingAllocations.find(
+          (item) => item.paymentMethod === paymentMethod,
+        )
+        return [
+          {
+            id: existing?.id ?? crypto.randomUUID(),
+            workspaceId: workspace.id,
+            sessionId: session.id,
+            sessionPlayerId: sessionPlayer.id,
+            paymentMethod,
+            amount,
+            createdAt: existing?.createdAt ?? now,
+            updatedAt: now,
+          },
+        ]
+      })
+      const paymentOffsets = offsetDraft.map((draft) => {
+        const existing = existingOffsets.find(
+          (item) => item.transactionId === draft.transactionId,
+        )
+        return {
+          id: existing?.id ?? crypto.randomUUID(),
+          workspaceId: workspace.id,
+          sessionId: session.id,
+          sessionPlayerId: sessionPlayer.id,
+          transactionId: draft.transactionId,
+          amount: draft.amount,
+          createdAt: existing?.createdAt ?? now,
+          updatedAt: now,
+        }
+      })
+
+      await runMutation(() =>
+        repository.saveCashOut({
+          sessionPlayer: updatedSessionPlayer,
+          payoutAllocations,
+          paymentOffsets,
+        }),
+      )
+      setData((current) => ({
+        ...current,
+        sessionPlayers: current.sessionPlayers.map((item) =>
+          item.id === sessionPlayer.id ? updatedSessionPlayer : item,
+        ),
+        payoutAllocations: [
+          ...current.payoutAllocations.filter(
+            (item) => item.sessionPlayerId !== sessionPlayer.id,
+          ),
+          ...payoutAllocations,
+        ],
+        paymentOffsets: [
+          ...current.paymentOffsets.filter(
+            (item) => item.sessionPlayerId !== sessionPlayer.id,
+          ),
+          ...paymentOffsets,
+        ],
+      }))
+    },
     addTransaction: async (input: NewTransactionInput) => {
+      ensurePrimaryPaymentMethod(input.paymentMethod)
+      const session = data.sessions.find((item) => item.id === input.sessionId)
+      const participant = data.sessionPlayers.find(
+        (item) =>
+          item.sessionId === input.sessionId && item.playerId === input.playerId,
+      )
+      if (!session || session.status !== 'ACTIVE' || !participant) {
+        throw new Error('Transactions require an active session participant.')
+      }
+      if (participant.status === 'CASHED_OUT') {
+        throw new Error('Cashed-out players cannot receive another rebuy.')
+      }
       const now = new Date().toISOString()
       const transaction: Transaction = {
         ...input,
@@ -164,6 +545,22 @@ export function AppDataProvider({ children }: PropsWithChildren) {
         (transaction) => transaction.id === input.id,
       )
       if (!currentTransaction) throw new Error('Transaction not found.')
+      if (
+        input.paymentMethod === 'OTHER' &&
+        currentTransaction.paymentMethod !== 'OTHER'
+      ) {
+        throw new Error('Transactions can only be changed to Cash or Card.')
+      }
+      const offsetAmount = sumMoney(
+        data.paymentOffsets
+          .filter((offset) => offset.transactionId === input.id)
+          .map((offset) => offset.amount),
+      )
+      if (toMinorUnits(input.amount) < toMinorUnits(offsetAmount)) {
+        throw new Error(
+          'The corrected transaction amount cannot be smaller than its cash-out offset.',
+        )
+      }
       const transaction = {
         ...currentTransaction,
         ...input,
@@ -190,6 +587,12 @@ export function AppDataProvider({ children }: PropsWithChildren) {
   return <AppDataContext.Provider value={value}>{children}</AppDataContext.Provider>
 }
 
+function ensurePrimaryPaymentMethod(paymentMethod: Transaction['paymentMethod']) {
+  if (!isStandardPaymentMethod(paymentMethod)) {
+    throw new Error('New transactions can only use Cash or Card.')
+  }
+}
+
 function DataLoadingScreen() {
   return (
     <main className="flex min-h-svh items-center justify-center bg-slate-950 text-slate-100">
@@ -203,4 +606,33 @@ function DataLoadingScreen() {
 
 function toErrorMessage(error: unknown): string {
   return error instanceof Error ? error.message : 'Something went wrong.'
+}
+
+function normalizeMutationError(error: unknown): Error {
+  const message = toErrorMessage(error)
+  if (
+    message.toLowerCase().includes('players_workspace_nickname_ci_unique') ||
+    (message.toLowerCase().includes('duplicate key') &&
+      message.toLowerCase().includes('players'))
+  ) {
+    return new Error('A player with this nickname already exists in this workspace.')
+  }
+  return error instanceof Error ? error : new Error(message)
+}
+
+function ensurePlayerNicknameAvailable(
+  players: Player[],
+  nickname: string,
+  excludedPlayerId?: string,
+): void {
+  const normalizedNickname = nickname.trim().toLocaleLowerCase()
+  if (
+    players.some(
+      (player) =>
+        player.id !== excludedPlayerId &&
+        player.nickname.trim().toLocaleLowerCase() === normalizedNickname,
+    )
+  ) {
+    throw new Error('A player with this nickname already exists in this workspace.')
+  }
 }

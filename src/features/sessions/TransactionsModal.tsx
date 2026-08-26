@@ -5,15 +5,18 @@ import { StatusBadge } from '../../components/StatusBadge'
 import { useAppData } from '../../hooks/useAppData'
 import type {
   PaymentMethod,
+  PaymentOffset,
   PaymentStatus,
   Player,
   Transaction,
 } from '../../types/domain'
 import { formatMoney } from '../../utils/format'
+import { roundMoney, sumMoney, toMinorUnits } from '../../utils/calculations'
 
 interface TransactionsModalProps {
   player: Player
   transactions: Transaction[]
+  paymentOffsets?: PaymentOffset[]
   onClose: () => void
 }
 
@@ -27,6 +30,7 @@ interface TransactionDraft {
 export function TransactionsModal({
   player,
   transactions,
+  paymentOffsets = [],
   onClose,
 }: TransactionsModalProps) {
   const { updateTransaction } = useAppData()
@@ -91,8 +95,16 @@ export function TransactionsModal({
         </p>
       ) : null}
       <div className="space-y-3">
-        {ordered.map((transaction) =>
-          editingId === transaction.id && draft ? (
+        {ordered.map((transaction) => {
+          const offsetAmount = sumMoney(
+            paymentOffsets
+              .filter((offset) => offset.transactionId === transaction.id)
+              .map((offset) => offset.amount),
+          )
+          const outstanding = roundMoney(
+            Math.max(transaction.amount - offsetAmount, 0),
+          )
+          return editingId === transaction.id && draft ? (
             <form
               key={transaction.id}
               onSubmit={saveCorrection}
@@ -149,7 +161,11 @@ export function TransactionsModal({
                   >
                     <option value="CASH">Cash</option>
                     <option value="CARD">Card</option>
-                    <option value="OTHER">Other</option>
+                    {draft.paymentMethod === 'OTHER' ? (
+                      <option value="OTHER" disabled>
+                        Other (legacy)
+                      </option>
+                    ) : null}
                   </select>
                 </label>
                 <label>
@@ -198,13 +214,22 @@ export function TransactionsModal({
                   <p className="mt-1 text-xs text-slate-500">
                     {transaction.chips} chips · {transaction.paymentMethod}
                   </p>
+                  {offsetAmount ? (
+                    <p className="mt-1 text-xs font-semibold text-sky-300">
+                      {formatMoney(offsetAmount)} offset at cash-out
+                      {transaction.paymentStatus === 'PENDING'
+                        ? ` · ${formatMoney(outstanding)} outstanding`
+                        : ''}
+                    </p>
+                  ) : null}
                 </div>
                 <p className="shrink-0 font-bold text-white">
                   {formatMoney(transaction.amount)}
                 </p>
               </div>
               <div className="mt-3 flex flex-wrap gap-2 border-t border-slate-800 pt-3">
-                {transaction.paymentStatus === 'PENDING' ? (
+                {transaction.paymentStatus === 'PENDING' &&
+                toMinorUnits(outstanding) > 0 ? (
                   <Button
                     onClick={() => void markReceived(transaction)}
                     disabled={savingId === transaction.id}
@@ -217,8 +242,8 @@ export function TransactionsModal({
                 </Button>
               </div>
             </div>
-          ),
-        )}
+          )
+        })}
       </div>
     </Modal>
   )
