@@ -22,7 +22,8 @@ type OpenDialog =
 
 export function ActiveSessionPage() {
   const { sessionId } = useParams()
-  const { sessions, players, sessionPlayers, transactions } = useAppData()
+  const { sessions, players, sessionPlayers, transactions, updateTransaction } = useAppData()
+  const [updatingTransactionId, setUpdatingTransactionId] = useState<string | null>(null)
   const [dialog, setDialog] = useState<OpenDialog>(null)
   const session = sessions.find((item) => item.id === sessionId)
 
@@ -65,13 +66,36 @@ export function ActiveSessionPage() {
             {bankSummary.pendingTransactions.map((transaction) => {
               const player = players.find((item) => item.id === transaction.playerId)
               return (
-                <div key={transaction.id} className="flex justify-between gap-4 text-sm">
+                <div key={transaction.id} className="flex flex-wrap items-center justify-between gap-3 text-sm">
                   <span className="text-slate-300">
                     {player?.nickname ?? 'Unknown player'} · {transaction.type.replace('_', ' ')}
                   </span>
-                  <span className="font-bold text-amber-300">
-                    {formatMoney(transaction.amount)}
-                  </span>
+                  <div className="flex items-center gap-3">
+                    <span className="font-bold text-amber-300">{formatMoney(transaction.amount)}</span>
+                    <button
+                      type="button"
+                      disabled={updatingTransactionId === transaction.id}
+                      onClick={async () => {
+                        setUpdatingTransactionId(transaction.id)
+                        try {
+                          await updateTransaction({
+                            id: transaction.id,
+                            amount: transaction.amount,
+                            chips: transaction.chips,
+                            paymentMethod: transaction.paymentMethod,
+                            paymentStatus: 'RECEIVED',
+                          })
+                        } catch {
+                          // The shared data error banner explains the repository failure.
+                        } finally {
+                          setUpdatingTransactionId(null)
+                        }
+                      }}
+                      className="min-h-10 rounded-lg bg-amber-300 px-3 text-xs font-bold text-slate-950 disabled:opacity-50"
+                    >
+                      {updatingTransactionId === transaction.id ? 'Updating…' : 'Mark received'}
+                    </button>
+                  </div>
                 </div>
               )
             })}

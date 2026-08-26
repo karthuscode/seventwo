@@ -14,9 +14,9 @@ export default defineConfig({
       registerType: 'autoUpdate',
       includeAssets: ['poker-chip.svg'],
       manifest: {
-        name: 'Poker Session Manager',
-        short_name: 'Poker Sessions',
-        description: 'Manage players, buy-ins, payments, and poker session history.',
+        name: 'SevenTwo',
+        short_name: 'SevenTwo',
+        description: 'A lightweight host companion for live Texas Hold’em home games.',
         theme_color: '#020617',
         background_color: '#020617',
         display: 'standalone',

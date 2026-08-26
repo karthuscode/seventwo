@@ -8,6 +8,9 @@ import { NotFoundPage } from './pages/NotFoundPage'
 import { PlayerDetailPage } from './pages/PlayerDetailPage'
 import { PlayersPage } from './pages/PlayersPage'
 import { SessionDetailPage } from './pages/SessionDetailPage'
+import { HostAccessPage } from './pages/HostAccessPage'
+import { AppDataProvider } from './features/app-data/AppDataProvider'
+import { useAuth } from './hooks/useAuth'
 
 const router = createBrowserRouter([
   {
@@ -26,5 +29,21 @@ const router = createBrowserRouter([
 ])
 
 export default function App() {
-  return <RouterProvider router={router} />
+  const { isAuthenticated, isLoading } = useAuth()
+
+  if (isLoading) {
+    return (
+      <main className="flex min-h-svh items-center justify-center bg-slate-950 text-slate-100">
+        <p className="text-sm text-slate-400">Checking host access…</p>
+      </main>
+    )
+  }
+
+  if (!isAuthenticated) return <HostAccessPage />
+
+  return (
+    <AppDataProvider>
+      <RouterProvider router={router} />
+    </AppDataProvider>
+  )
 }

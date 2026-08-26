@@ -17,7 +17,7 @@ export function DashboardPage() {
   return (
     <div className="space-y-8">
       <PageHeader
-        eyebrow="Good evening"
+        eyebrow="SevenTwo"
         title="Your poker table, organized."
         description="Keep players, payments, and the common bank clear while the game stays moving."
         action={

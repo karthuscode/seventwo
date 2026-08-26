@@ -13,8 +13,9 @@ export function AddPlayerModal({ onClose, onAdded }: AddPlayerModalProps) {
   const { addPlayer, players } = useAppData()
   const [nickname, setNickname] = useState('')
   const [error, setError] = useState('')
+  const [isSaving, setIsSaving] = useState(false)
 
-  function handleSubmit(event: FormEvent) {
+  async function handleSubmit(event: FormEvent) {
     event.preventDefault()
     const cleanNickname = nickname.trim()
     if (!cleanNickname) {
@@ -29,9 +30,18 @@ export function AddPlayerModal({ onClose, onAdded }: AddPlayerModalProps) {
       setError('A player with this nickname already exists.')
       return
     }
-    const player = addPlayer(cleanNickname)
-    onAdded?.(player)
-    onClose()
+    setIsSaving(true)
+    try {
+      const player = await addPlayer(cleanNickname)
+      onAdded?.(player)
+      onClose()
+    } catch (caughtError) {
+      setError(
+        caughtError instanceof Error ? caughtError.message : 'Unable to add player.',
+      )
+    } finally {
+      setIsSaving(false)
+    }
   }
 
   return (
@@ -57,7 +67,9 @@ export function AddPlayerModal({ onClose, onAdded }: AddPlayerModalProps) {
           <Button type="button" variant="secondary" onClick={onClose}>
             Cancel
           </Button>
-          <Button type="submit">Add player</Button>
+          <Button type="submit" disabled={isSaving}>
+            {isSaving ? 'Adding…' : 'Add player'}
+          </Button>
         </div>
       </form>
     </Modal>

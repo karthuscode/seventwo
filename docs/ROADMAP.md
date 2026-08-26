@@ -1,24 +1,27 @@
-# Poker Session Manager Roadmap
+# SevenTwo Roadmap
 
-The project is intentionally split into small phases so each step leaves the host with a usable application.
+## Phase 1 — Foundation ✅
 
-## Phase 1 — Foundation
+- React, strict TypeScript, Vite, Tailwind, Router, and PWA baseline
+- Player, session, participant, and transaction domain model
+- Mobile-first application shell and primary routes
+- Local player management and session creation
+- Separate buy-in and rebuy ledger entries
+- Committed, received, and pending bank calculations
+- Supabase client and initial PostgreSQL schema preparation
 
-- Establish the React, TypeScript, Vite, Tailwind, Router, and PWA baseline
-- Define the player, session, participant, and transaction domain model
-- Add the mobile-first shell and primary page routes
-- Build local player management and session creation
-- Record initial buy-ins and rebuys as separate ledger entries
-- Calculate committed, received, and pending bank totals
-- Prepare the Supabase client, SQL schema, and repository boundary
+## Phase 2 — Shared host access and persistence ✅
 
-## Phase 2 — Session transactions
-
-- Replace local persistence with an async Supabase repository
-- Add players to an already active session
-- Edit payment method and mark pending payments as received
-- Improve transaction history, corrections, and safe reversal handling
-- Add session finishing prerequisites and validation
+- Shared access-code experience backed by one Supabase Auth host account
+- Persisted authentication and logout
+- Workspace and future-ready workspace membership architecture
+- Workspace-scoped domain records and referential integrity
+- Supabase-backed asynchronous repository
+- Mandatory membership-based RLS policies
+- Pending-payment confirmation
+- In-place transaction corrections with creation/update timestamps
+- Safe local demo separation and optional Phase 1 data import
+- Shared cross-device data after Supabase configuration
 
 ## Phase 3 — Cash-out and settlement
 
@@ -27,34 +30,35 @@ The project is intentionally split into small phases so each step leaves the hos
 - Calculate player profit/loss
 - Reconcile cash-outs with committed and received funds
 - Surface discrepancies before finishing a session
-- Save a final immutable settlement snapshot
+- Save a final settlement snapshot
 
 ## Phase 4 — Blind timer
 
-- Add configurable small-blind and big-blind levels
-- Provide a large, table-readable timer
-- Support pause, resume, next level, and optional breaks
-- Preserve timer settings per session without mixing timer logic into finance logic
+- Configurable small-blind and big-blind levels
+- Large table-readable timer
+- Pause, resume, next level, and optional breaks
+- Timer settings isolated from financial records
 
 ## Phase 5 — Statistics and UX improvements
 
-- Expand player and session statistics from historical records
-- Add useful trends, filters, and search
-- Improve offline behavior and install prompts
-- Add data export and backup options
-- Refine accessibility, keyboard support, and table-side ergonomics
+- Deeper player and session statistics derived from history
+- Useful trends, filters, and search
+- Improved offline and installation experience
+- Data export and backup options
+- Accessibility and table-side ergonomics refinement
 
-## Phase 6 — Optional multi-user support
+## Phase 6 — Optional individual users
 
-- Introduce authentication and host ownership
-- Add row-level security policies
-- Allow invited players to join from their own phones
-- Define clear permissions for viewing, payment confirmation, and host-only changes
-- Add safe real-time synchronization
+- Replace or supplement the shared host identity with individual accounts
+- Invite additional OWNER or HOST workspace members
+- Define host and viewer permissions
+- Allow selected participants to join from their own phones
+- Add safe real-time synchronization where it improves the workflow
 
 ## Architectural guardrails
 
-- Transactions remain individual ledger entries; totals are derived rather than duplicated.
-- Payment method and payment receipt status remain independent.
-- Poker hand, pot, card, winner, and strategy tracking stay outside the product scope.
-- Multi-user concerns should be added only when the single-host workflow is stable.
+- Transactions remain ledger entries; totals are derived rather than duplicated.
+- Payment method and receipt status remain independent.
+- Workspace membership—not possession of the public API key—authorizes data access.
+- Poker players remain separate from authenticated application users.
+- Cards, hands, pots, winners, and strategy stay outside product scope.

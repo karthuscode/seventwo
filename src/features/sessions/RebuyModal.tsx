@@ -23,19 +23,31 @@ export function RebuyModal({ player, session, onClose }: RebuyModalProps) {
     useState<PaymentMethod>('CASH')
   const [paymentStatus, setPaymentStatus] =
     useState<PaymentStatus>('RECEIVED')
+  const [isSaving, setIsSaving] = useState(false)
+  const [error, setError] = useState('')
 
-  function handleSubmit(event: FormEvent) {
+  async function handleSubmit(event: FormEvent) {
     event.preventDefault()
-    addTransaction({
-      sessionId: session.id,
-      playerId: player.id,
-      type: 'REBUY',
-      amount,
-      chips,
-      paymentMethod,
-      paymentStatus,
-    })
-    onClose()
+    setIsSaving(true)
+    setError('')
+    try {
+      await addTransaction({
+        sessionId: session.id,
+        playerId: player.id,
+        type: 'REBUY',
+        amount,
+        chips,
+        paymentMethod,
+        paymentStatus,
+      })
+      onClose()
+    } catch (caughtError) {
+      setError(
+        caughtError instanceof Error ? caughtError.message : 'Unable to add rebuy.',
+      )
+    } finally {
+      setIsSaving(false)
+    }
   }
 
   return (
@@ -102,8 +114,9 @@ export function RebuyModal({ player, session, onClose }: RebuyModalProps) {
           </div>
         </fieldset>
 
-        <Button type="submit" fullWidth>
-          Add rebuy
+        {error ? <p className="text-sm text-red-300">{error}</p> : null}
+        <Button type="submit" fullWidth disabled={isSaving}>
+          {isSaving ? 'Adding…' : 'Add rebuy'}
         </Button>
       </form>
     </Modal>

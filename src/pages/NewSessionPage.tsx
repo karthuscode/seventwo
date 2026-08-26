@@ -15,6 +15,8 @@ export function NewSessionPage() {
   const [chipsPerBuyIn, setChipsPerBuyIn] = useState(100)
   const [selectedPlayerIds, setSelectedPlayerIds] = useState<string[]>([])
   const [showAddPlayer, setShowAddPlayer] = useState(false)
+  const [isSaving, setIsSaving] = useState(false)
+  const [error, setError] = useState('')
 
   function togglePlayer(playerId: string) {
     setSelectedPlayerIds((current) =>
@@ -24,16 +26,28 @@ export function NewSessionPage() {
     )
   }
 
-  function handleSubmit(event: FormEvent) {
+  async function handleSubmit(event: FormEvent) {
     event.preventDefault()
-    const session = createSession({
-      name,
-      date,
-      buyInAmount,
-      chipsPerBuyIn,
-      playerIds: selectedPlayerIds,
-    })
-    navigate(`/sessions/${session.id}/active`)
+    setIsSaving(true)
+    setError('')
+    try {
+      const session = await createSession({
+        name,
+        date,
+        buyInAmount,
+        chipsPerBuyIn,
+        playerIds: selectedPlayerIds,
+      })
+      navigate(`/sessions/${session.id}/active`)
+    } catch (caughtError) {
+      setError(
+        caughtError instanceof Error
+          ? caughtError.message
+          : 'Unable to create session.',
+      )
+    } finally {
+      setIsSaving(false)
+    }
   }
 
   return (
@@ -150,15 +164,16 @@ export function NewSessionPage() {
           </div>
 
           <p className="mt-5 text-xs leading-5 text-slate-500">
-            Each selected player starts with one cash buy-in marked received. Payment editing will be expanded in the transaction phase.
+            Each selected player starts with one cash buy-in marked received. You can correct its payment details from the active session.
           </p>
+          {error ? <p className="mt-3 text-sm text-red-300">{error}</p> : null}
           <Button
             type="submit"
             fullWidth
             className="mt-5"
-            disabled={!name.trim() || selectedPlayerIds.length === 0}
+            disabled={!name.trim() || selectedPlayerIds.length === 0 || isSaving}
           >
-            Create & start session
+            {isSaving ? 'Creating…' : 'Create & start session'}
           </Button>
         </section>
       </form>
