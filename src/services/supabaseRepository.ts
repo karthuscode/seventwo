@@ -278,23 +278,90 @@ export class SupabaseRepository implements AppRepository {
     name: string,
     body: Record<string, string>,
   ): Promise<T> {
-    const { data, error } = await this.client.functions.invoke(name, { body })
-    if (error) {
-      const context = 'context' in error ? error.context : null
-      if (context instanceof Response) {
-        let responseMessage: string | undefined
-        try {
-          const responseBody = (await context.json()) as { error?: string }
-          responseMessage = responseBody.error
-        } catch {
-          // Fall back to the function client's transport error.
-        }
-        if (responseMessage) throw new Error(responseMessage)
+    for (let attempt = 0; attempt <= 1; attempt += 1) {
+      const { data, error } = await this.client.functions.invoke(name, { body })
+      if (!error) return data as T
+
+      if (isTransientFunctionError(error) && attempt === 0) {
+        await delay(350)
+        continue
       }
-      throw new Error(error.message)
+
+      throw await toWorkspaceFunctionError(error)
     }
-    return data as T
+
+    throw new Error('SevenTwo could not complete the workspace request.')
   }
+}
+
+function isTransientFunctionError(error: unknown): boolean {
+  return (
+    isFunctionError(error, 'FunctionsFetchError') ||
+    isFunctionError(error, 'FunctionsRelayError')
+  )
+}
+
+async function toWorkspaceFunctionError(error: unknown): Promise<Error> {
+  if (isFunctionError(error, 'FunctionsFetchError')) {
+    return new Error(
+      'Unable to reach the SevenTwo workspace service. Check your connection and try again.',
+    )
+  }
+  if (isFunctionError(error, 'FunctionsRelayError')) {
+    return new Error(
+      'The SevenTwo workspace service is temporarily unavailable. Try again shortly.',
+    )
+  }
+  if (isFunctionError(error, 'FunctionsHttpError')) {
+    const response = error.context
+    if (response instanceof Response) {
+      const responseMessage = await readFunctionErrorMessage(response)
+      if (responseMessage) return new Error(responseMessage)
+      if (response.status === 401 || response.status === 403) {
+        return new Error('Your SevenTwo session is no longer authorized.')
+      }
+      if (response.status === 404) {
+        return new Error('Workspace code not recognized.')
+      }
+      if (response.status === 429) {
+        return new Error(
+          'Too many attempts. Wait before trying another workspace code.',
+        )
+      }
+      if (response.status >= 500) {
+        return new Error(
+          'The SevenTwo workspace service encountered a server error.',
+        )
+      }
+    }
+  }
+  return new Error(
+    error instanceof Error
+      ? error.message
+      : 'SevenTwo could not complete the workspace request.',
+  )
+}
+
+function isFunctionError(
+  error: unknown,
+  name: 'FunctionsFetchError' | 'FunctionsRelayError' | 'FunctionsHttpError',
+): error is Error & { context?: unknown } {
+  return error instanceof Error && error.name === name
+}
+
+async function readFunctionErrorMessage(
+  response: Response,
+): Promise<string | undefined> {
+  try {
+    const body = (await response.json()) as { error?: unknown }
+    return typeof body.error === 'string' ? body.error : undefined
+  } catch {
+    return undefined
+  }
+}
+
+function delay(milliseconds: number): Promise<void> {
+  return new Promise((resolve) => setTimeout(resolve, milliseconds))
 }
 
 function throwIfError(error: { message: string } | null): void {
