@@ -19,6 +19,11 @@ export interface Workspace {
   role: WorkspaceRole
 }
 
+export interface WorkspaceAccessResult {
+  workspace: Workspace
+  accessCode: string
+}
+
 export interface Player {
   id: string
   workspaceId: string

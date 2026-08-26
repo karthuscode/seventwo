@@ -12,8 +12,6 @@
 
 ## Phase 2 — Shared host access and persistence ✅
 
-- Shared access-code experience backed by one Supabase Auth host account
-- Persisted authentication and logout
 - Workspace and future-ready workspace membership architecture
 - Workspace-scoped domain records and referential integrity
 - Supabase-backed asynchronous repository
@@ -22,6 +20,19 @@
 - In-place transaction corrections with creation/update timestamps
 - Safe local demo separation and optional Phase 1 data import
 - Shared cross-device data after Supabase configuration
+
+## Phase 2.5 — Workspace access codes ✅
+
+- Invisible, persisted Supabase Anonymous Auth
+- Multiple independent workspaces per anonymous device identity
+- Secure server-side workspace creation and OWNER membership
+- Six-digit HMAC-protected access codes with no plaintext database storage
+- HOST joins through a focused Edge Function
+- Mobile workspace selector with data-layer remount on switch
+- OWNER-only access-code rotation
+- Lightweight failed-join throttling
+- Digest-hiding database privileges and preserved membership-based RLS
+- Multi-workspace local demo simulation
 
 ## Phase 3 — Cash-out and settlement
 
@@ -49,7 +60,7 @@
 
 ## Phase 6 — Optional individual users
 
-- Replace or supplement the shared host identity with individual accounts
+- Optionally upgrade anonymous identities to recoverable individual accounts
 - Invite additional OWNER or HOST workspace members
 - Define host and viewer permissions
 - Allow selected participants to join from their own phones

@@ -5,6 +5,7 @@ import type {
   SessionPlayer,
   Transaction,
   Workspace,
+  WorkspaceAccessResult,
 } from '../types/domain'
 
 export interface SessionRecords {
@@ -15,7 +16,10 @@ export interface SessionRecords {
 
 export interface AppRepository {
   readonly kind: 'local' | 'supabase'
-  getWorkspace(): Promise<Workspace | null>
+  listWorkspaces(): Promise<Workspace[]>
+  createWorkspace(name: string): Promise<WorkspaceAccessResult>
+  joinWorkspace(code: string): Promise<Workspace>
+  rotateWorkspaceCode(workspaceId: string): Promise<string>
   load(workspaceId: string): Promise<AppData>
   addPlayer(player: Player): Promise<void>
   createSession(records: SessionRecords): Promise<void>

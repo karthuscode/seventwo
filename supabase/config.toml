@@ -1,0 +1,15 @@
+project_id = "seventwo"
+
+[auth]
+enable_anonymous_sign_ins = true
+
+[functions.create-workspace]
+# The function validates the bearer token with auth.getUser(). Keeping gateway
+# verification off also supports Supabase's current publishable-key format.
+verify_jwt = false
+
+[functions.join-workspace]
+verify_jwt = false
+
+[functions.rotate-workspace-code]
+verify_jwt = false

@@ -1,7 +1,6 @@
 import {
   useCallback,
   useEffect,
-  useMemo,
   useState,
   type PropsWithChildren,
 } from 'react'
@@ -13,51 +12,37 @@ import type {
   Session,
   Transaction,
   UpdateTransactionInput,
-  Workspace,
 } from '../../types/domain'
 import {
   emptyAppData,
   hasAppData,
-  type AppRepository,
   type SessionRecords,
 } from '../../services/appRepository'
 import { LocalStorageRepository } from '../../services/localStorageRepository'
-import { supabase } from '../../services/supabaseClient'
-import { SupabaseRepository } from '../../services/supabaseRepository'
-import { useAuth } from '../../hooks/useAuth'
-import { Button } from '../../components/Button'
+import { useWorkspaces } from '../../hooks/useWorkspaces'
 import { AppDataContext } from './AppDataContext'
 
 export function AppDataProvider({ children }: PropsWithChildren) {
-  const { mode, signOut } = useAuth()
-  const repository = useMemo<AppRepository>(() => {
-    if (mode === 'supabase' && supabase) return new SupabaseRepository(supabase)
-    return new LocalStorageRepository()
-  }, [mode])
-  const [workspace, setWorkspace] = useState<Workspace | null>(null)
+  const { repository, selectedWorkspace: workspace } = useWorkspaces()
   const [data, setData] = useState<AppData>(emptyAppData)
   const [legacyData, setLegacyData] = useState<AppData | null>(null)
   const [isLoading, setIsLoading] = useState(true)
   const [isSaving, setIsSaving] = useState(false)
   const [error, setError] = useState<string | null>(null)
 
+  if (!workspace) {
+    throw new Error('AppDataProvider requires a selected workspace.')
+  }
+
   const loadData = useCallback(async () => {
     try {
-      const nextWorkspace = await repository.getWorkspace()
-      if (!nextWorkspace) {
-        throw new Error(
-          'This host account is not assigned to a SevenTwo workspace. Add its workspace_members row in Supabase.',
-        )
-      }
-      const nextData = await repository.load(nextWorkspace.id)
-      setError(null)
-      setWorkspace(nextWorkspace)
+      const nextData = await repository.load(workspace.id)
       setData(nextData)
+      setError(null)
 
       if (repository.kind === 'supabase' && !hasAppData(nextData)) {
-        const localRepository = new LocalStorageRepository()
-        const localData = await localRepository.load()
-        setLegacyData(hasAppData(localData) ? localData : null)
+        const localData = await new LocalStorageRepository().loadLegacyData()
+        setLegacyData(localData)
       } else {
         setLegacyData(null)
       }
@@ -66,7 +51,7 @@ export function AppDataProvider({ children }: PropsWithChildren) {
     } finally {
       setIsLoading(false)
     }
-  }, [repository])
+  }, [repository, workspace.id])
 
   useEffect(() => {
     // Repository hydration is the external synchronization this effect owns.
@@ -87,24 +72,7 @@ export function AppDataProvider({ children }: PropsWithChildren) {
     }
   }
 
-  if (isLoading) {
-    return <DataLoadingScreen />
-  }
-
-  if (!workspace) {
-    return (
-      <main className="flex min-h-svh items-center justify-center bg-slate-950 px-4 text-slate-100">
-        <section className="w-full max-w-lg rounded-2xl border border-red-900/50 bg-slate-900 p-6 text-center">
-          <h1 className="text-xl font-bold text-white">Workspace unavailable</h1>
-          <p className="mt-3 text-sm leading-6 text-red-200">{error}</p>
-          <div className="mt-5 flex justify-center gap-3">
-            <Button variant="secondary" onClick={() => void loadData()}>Retry</Button>
-            <Button variant="ghost" onClick={() => void signOut()}>Log out</Button>
-          </div>
-        </section>
-      </main>
-    )
-  }
+  if (isLoading) return <DataLoadingScreen />
 
   const value = {
     ...data,
@@ -177,12 +145,13 @@ export function AppDataProvider({ children }: PropsWithChildren) {
       return session
     },
     addTransaction: async (input: NewTransactionInput) => {
+      const now = new Date().toISOString()
       const transaction: Transaction = {
         ...input,
         id: crypto.randomUUID(),
         workspaceId: workspace.id,
-        createdAt: new Date().toISOString(),
-        updatedAt: new Date().toISOString(),
+        createdAt: now,
+        updatedAt: now,
       }
       await runMutation(async () => repository.addTransaction(transaction))
       setData((current) => ({
@@ -211,8 +180,7 @@ export function AppDataProvider({ children }: PropsWithChildren) {
     importLocalData: async () => {
       if (!legacyData) return
       await runMutation(async () => repository.importData(workspace.id, legacyData))
-      const importedData = await repository.load(workspace.id)
-      setData(importedData)
+      setData(await repository.load(workspace.id))
       setLegacyData(null)
     },
     refresh: loadData,
@@ -227,7 +195,7 @@ function DataLoadingScreen() {
     <main className="flex min-h-svh items-center justify-center bg-slate-950 text-slate-100">
       <div className="text-center">
         <div className="mx-auto size-8 animate-pulse rounded-full bg-emerald-400" />
-        <p className="mt-4 text-sm text-slate-400">Loading SevenTwo…</p>
+        <p className="mt-4 text-sm text-slate-400">Loading workspace…</p>
       </div>
     </main>
   )

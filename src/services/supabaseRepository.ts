@@ -6,6 +6,7 @@ import type {
   SessionPlayer,
   Transaction,
   Workspace,
+  WorkspaceAccessResult,
   WorkspaceRole,
 } from '../types/domain'
 import {
@@ -72,30 +73,57 @@ export class SupabaseRepository implements AppRepository {
     this.client = client
   }
 
-  async getWorkspace(): Promise<Workspace | null> {
-    const { data: membership, error: membershipError } = await this.client
+  async listWorkspaces(): Promise<Workspace[]> {
+    const { data: memberships, error: membershipError } = await this.client
       .from('workspace_members')
       .select('workspace_id, role')
       .order('created_at', { ascending: true })
-      .limit(1)
-      .maybeSingle()
     throwIfError(membershipError)
-    if (!membership) return null
+    if (!memberships?.length) return []
 
-    const { data: workspace, error: workspaceError } = await this.client
+    const workspaceIds = memberships.map((membership) => membership.workspace_id)
+    const { data: workspaces, error: workspaceError } = await this.client
       .from('workspaces')
       .select('id, name, created_at')
-      .eq('id', membership.workspace_id)
-      .single()
+      .in('id', workspaceIds)
     throwIfError(workspaceError)
 
-    const row = workspace as WorkspaceRow
-    return {
-      id: row.id,
-      name: row.name,
-      createdAt: row.created_at,
-      role: membership.role as WorkspaceRole,
-    }
+    const roles = new Map(
+      memberships.map((membership) => [
+        membership.workspace_id,
+        membership.role as WorkspaceRole,
+      ]),
+    )
+    return (workspaces as WorkspaceRow[])
+      .map((row) => ({
+        id: row.id,
+        name: row.name,
+        createdAt: row.created_at,
+        role: roles.get(row.id) ?? 'HOST',
+      }))
+      .sort((a, b) => a.name.localeCompare(b.name))
+  }
+
+  async createWorkspace(name: string): Promise<WorkspaceAccessResult> {
+    return this.invokeFunction<WorkspaceAccessResult>('create-workspace', {
+      name: name.trim(),
+    })
+  }
+
+  async joinWorkspace(code: string): Promise<Workspace> {
+    const result = await this.invokeFunction<{ workspace: Workspace }>(
+      'join-workspace',
+      { code },
+    )
+    return result.workspace
+  }
+
+  async rotateWorkspaceCode(workspaceId: string): Promise<string> {
+    const result = await this.invokeFunction<{ accessCode: string }>(
+      'rotate-workspace-code',
+      { workspaceId },
+    )
+    return result.accessCode
   }
 
   async load(workspaceId: string): Promise<AppData> {
@@ -244,6 +272,28 @@ export class SupabaseRepository implements AppRepository {
       }
       throw error
     }
+  }
+
+  private async invokeFunction<T>(
+    name: string,
+    body: Record<string, string>,
+  ): Promise<T> {
+    const { data, error } = await this.client.functions.invoke(name, { body })
+    if (error) {
+      const context = 'context' in error ? error.context : null
+      if (context instanceof Response) {
+        let responseMessage: string | undefined
+        try {
+          const responseBody = (await context.json()) as { error?: string }
+          responseMessage = responseBody.error
+        } catch {
+          // Fall back to the function client's transport error.
+        }
+        if (responseMessage) throw new Error(responseMessage)
+      }
+      throw new Error(error.message)
+    }
+    return data as T
   }
 }
 

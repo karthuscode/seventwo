@@ -1,5 +1,6 @@
 import { NavLink, Outlet } from 'react-router-dom'
-import { useAuth } from '../hooks/useAuth'
+import { WorkspaceCodeModal } from '../features/workspaces/WorkspaceCodeModal'
+import { WorkspaceMenu } from '../features/workspaces/WorkspaceMenu'
 import { useAppData } from '../hooks/useAppData'
 
 const navItems = [
@@ -35,7 +36,6 @@ function Navigation() {
 }
 
 export function AppLayout() {
-  const { signOut } = useAuth()
   const {
     workspace,
     repositoryKind,
@@ -63,13 +63,7 @@ export function AppLayout() {
           <p className="mb-2 px-2 text-xs text-slate-600">
             {repositoryKind === 'supabase' ? 'Shared workspace' : 'Local demo'}
           </p>
-          <button
-            type="button"
-            onClick={() => void signOut()}
-            className="min-h-11 w-full rounded-xl px-3 text-left text-sm font-semibold text-slate-500 hover:bg-slate-800 hover:text-white"
-          >
-            Log out
-          </button>
+          <WorkspaceMenu triggerClassName="min-h-11 w-full rounded-xl px-3 text-left text-sm font-semibold text-slate-500 hover:bg-slate-800 hover:text-white" />
         </div>
       </aside>
 
@@ -82,7 +76,7 @@ export function AppLayout() {
               <p className="text-[11px] text-slate-500">{workspace.name}</p>
             </div>
           </div>
-          <button type="button" onClick={() => void signOut()} className="min-h-11 rounded-xl px-3 text-sm font-semibold text-slate-400 hover:bg-slate-800">Log out</button>
+          <WorkspaceMenu triggerClassName="min-h-11 rounded-xl px-3 text-sm font-semibold text-slate-400 hover:bg-slate-800" />
         </div>
         {repositoryKind === 'local' ? (
           <div className="mb-5 rounded-xl border border-amber-400/20 bg-amber-400/5 px-4 py-3 text-sm text-amber-100">
@@ -109,6 +103,7 @@ export function AppLayout() {
       <div className="fixed inset-x-0 bottom-0 z-40 border-t border-slate-800 bg-slate-950/95 px-2 pb-[env(safe-area-inset-bottom)] backdrop-blur md:hidden">
         <Navigation />
       </div>
+      <WorkspaceCodeModal />
     </div>
   )
 }

@@ -8,10 +8,8 @@ export interface AuthContextValue {
   user: User | null
   isAuthenticated: boolean
   isLoading: boolean
-  configurationError: string | null
-  signIn: (accessCode: string) => Promise<void>
-  continueLocally: () => void
-  signOut: () => Promise<void>
+  error: string | null
+  retry: () => Promise<void>
 }
 
 export const AuthContext = createContext<AuthContextValue | null>(null)
