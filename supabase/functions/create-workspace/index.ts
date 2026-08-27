@@ -36,6 +36,9 @@ Deno.serve(async (request) => {
     if (rpcError) throw rpcError
     const workspace = rows?.[0]
     if (!workspace) throw new Error('Workspace creation returned no data.')
+    if (!isUuid(workspace.workspace_invite_seed)) {
+      throw new Error('Workspace creation returned invalid invite data.')
+    }
     const accessCode = await deriveWorkspaceCode(workspace.workspace_invite_seed)
 
     return jsonResponse({
