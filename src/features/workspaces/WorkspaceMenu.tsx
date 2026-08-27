@@ -18,27 +18,13 @@ export function WorkspaceMenu({
     workspaces,
     selectedWorkspace,
     selectWorkspace,
-    rotateWorkspaceCode,
-    isSaving,
   } = useWorkspaces()
   const [isOpen, setIsOpen] = useState(false)
-  const [error, setError] = useState('')
 
   function chooseWorkspace(workspaceId: string) {
     selectWorkspace(workspaceId)
     navigate('/')
     setIsOpen(false)
-  }
-
-  async function rotateCode() {
-    if (!selectedWorkspace) return
-    setError('')
-    try {
-      await rotateWorkspaceCode(selectedWorkspace.id)
-      setIsOpen(false)
-    } catch (caughtError) {
-      setError(caughtError instanceof Error ? caughtError.message : 'Unable to regenerate code.')
-    }
   }
 
   return (
@@ -65,25 +51,6 @@ export function WorkspaceMenu({
               </button>
             ))}
           </div>
-
-          {selectedWorkspace?.role === 'OWNER' ? (
-            <div className="mt-5 border-t border-line pt-5">
-              <p className="font-semibold text-ink">Workspace access code</p>
-              <p className="mt-1 text-xs leading-5 text-ink-muted">
-                The code is only shown when created or regenerated. Existing members keep access after rotation.
-              </p>
-              <Button
-                variant="secondary"
-                fullWidth
-                className="mt-3"
-                disabled={isSaving}
-                onClick={() => void rotateCode()}
-              >
-                {isSaving ? 'Regenerating…' : 'Regenerate workspace code'}
-              </Button>
-              {error ? <p className="mt-2 text-sm text-red-300">{error}</p> : null}
-            </div>
-          ) : null}
 
           <Button
             variant="ghost"

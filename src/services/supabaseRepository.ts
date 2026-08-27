@@ -782,11 +782,11 @@ async function toWorkspaceFunctionError(error: unknown): Promise<Error> {
         return new Error('Your SevenTwo session is no longer authorized.')
       }
       if (response.status === 404) {
-        return new Error('Workspace code not recognized.')
+        return new Error('Invite code not recognized.')
       }
       if (response.status === 429) {
         return new Error(
-          'Too many attempts. Wait before trying another workspace code.',
+          'Too many attempts. Wait before trying another invite code.',
         )
       }
       if (response.status >= 500) {

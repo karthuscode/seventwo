@@ -32,7 +32,7 @@ export function AccountMenu({
     ? metadataName || linkedPlayer?.nickname || emailName || 'SevenTwo member'
     : mode === 'local'
       ? `Local ${titleCase(workspace.role)}`
-      : `Guest ${titleCase(workspace.role)}`
+      : 'SevenTwo member'
   const initials = displayName
     .split(/\s+/)
     .map((part) => part[0])
@@ -62,7 +62,6 @@ export function AccountMenu({
   }
 
   async function handleSignOut() {
-    if (!isRegistered && !window.confirm('Sign out of this guest session? A new guest identity will be created on this device.')) return
     setIsSigningOut(true)
     setSignOutError('')
     try {
@@ -106,7 +105,7 @@ export function AccountMenu({
               <div className="min-w-0">
                 <p className="truncate text-sm font-black text-ink" title={displayName}>{displayName}</p>
                 <p className="mt-1 truncate text-xs text-ink-muted" title={user?.email ?? undefined}>
-                  {isRegistered ? user?.email : mode === 'local' ? 'Local demo identity' : 'Anonymous session'}
+                  {isRegistered ? user?.email : 'Local demo identity'}
                 </p>
               </div>
               <span className="shrink-0 rounded-md bg-white/[0.07] px-2 py-1 text-[9px] font-black tracking-[0.12em] text-ink-secondary">
@@ -121,8 +120,8 @@ export function AccountMenu({
           <div className="border-t border-line pt-2">
             <MenuButton onClick={() => runAndClose(() => navigate('/profile'))}>View profile</MenuButton>
             <MenuButton onClick={() => runAndClose(() => { selectWorkspace(null); navigate('/') })}>Switch workspace</MenuButton>
-            {workspace.role === 'OWNER' ? <MenuButton onClick={() => runAndClose(onOpenInvite)}>Invite players or hosts</MenuButton> : null}
-            <MenuButton onClick={() => runAndClose(onOpenAccount)}>{isRegistered ? 'Account settings' : 'Register or sign in'}</MenuButton>
+            {workspace.role === 'OWNER' ? <MenuButton onClick={() => runAndClose(onOpenInvite)}>Invite player</MenuButton> : null}
+            <MenuButton onClick={() => runAndClose(onOpenAccount)}>Account settings</MenuButton>
             {mode === 'supabase' ? (
               <MenuButton disabled={isSigningOut} onClick={() => void handleSignOut()}>
                 {isSigningOut ? 'Signing out…' : 'Sign out'}

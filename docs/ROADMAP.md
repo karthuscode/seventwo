@@ -33,6 +33,7 @@
 - Lightweight failed-join throttling
 - Digest-hiding database privileges and preserved membership-based RLS
 - Multi-workspace local demo simulation
+- Superseded in the normal product flow by Phase 4 account-first Player invites; legacy code support can remain temporarily for migration.
 
 ## Phase 3 — Cash-out and settlement ✅
 
@@ -45,10 +46,12 @@
 
 ## Phase 4 — Accounts, roles, invites, and planning (local implementation complete)
 
-- Optional email magic-link registration with anonymous-access preservation
+- Email/password account registration and login with display names
+- Account-first Auth screen and Workspace Gateway
 - OWNER / HOST / PLAYER permissions and linked canonical Player identities
-- Unified invite-code onboarding for Host access and Player invitations
+- Player-only invite-code onboarding; OWNER promotes PLAYER to HOST later
 - Secure Player invites for exact historical-profile linking or new registered-Player creation
+- Legacy anonymous OWNER upgrade path that preserves workspace IDs and historical data
 - Visible account identity, active-workspace role, role-aware onboarding, and profile states
 - Concrete timeslot Plans, registered self-voting, and Host guest-proxy voting
 - Attendance viability, deterministic best option, confirmation, primary host, and Plan → Session conversion

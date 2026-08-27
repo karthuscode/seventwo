@@ -9,7 +9,7 @@ interface JoinWorkspaceFormProps {
 }
 
 export function JoinWorkspaceForm({ onCancel, onJoined }: JoinWorkspaceFormProps) {
-  const { isRegistered, mode } = useAuth()
+  const { mode } = useAuth()
   const { joinWithInviteCode, isSaving } = useWorkspaces()
   const [code, setCode] = useState('')
   const [nickname, setNickname] = useState('')
@@ -43,7 +43,7 @@ export function JoinWorkspaceForm({ onCancel, onJoined }: JoinWorkspaceFormProps
         <p className="mt-1 text-sm leading-6 text-ink-muted">
           {needsNickname
             ? 'This invite creates your new registered poker identity. Your nickname must be unique in this workspace.'
-            : 'One code field works for both Player invitations and Host access.'}
+            : 'Enter the Player invite code from your workspace owner.'}
         </p>
       </div>
 
@@ -67,7 +67,7 @@ export function JoinWorkspaceForm({ onCancel, onJoined }: JoinWorkspaceFormProps
           aria-describedby="invite-code-help"
         />
         <span id="invite-code-help" className="mt-2 block text-xs text-ink-muted">
-          Six digits · the invite type is detected securely
+          Six digits · joins this workspace as PLAYER
         </span>
       </label>
 
@@ -90,11 +90,7 @@ export function JoinWorkspaceForm({ onCancel, onJoined }: JoinWorkspaceFormProps
         </label>
       ) : null}
 
-      {mode === 'supabase' && !isRegistered && needsNickname ? (
-        <p className="glass-warning rounded-xl px-4 py-3 text-sm text-amber-100">
-          Register or sign in before using a new Player invite.
-        </p>
-      ) : null}
+      {mode === 'local' ? <p className="text-xs leading-5 text-ink-muted">Local invite codes only work in this browser.</p> : null}
       {error ? <p role="alert" className="text-sm leading-6 text-red-300">{error}</p> : null}
 
       <div className={onCancel ? 'grid grid-cols-2 gap-2' : ''}>

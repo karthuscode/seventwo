@@ -7,7 +7,7 @@ Deno.serve(async (request) => {
   if (request.method !== 'POST') return jsonResponse({ error: 'Method not allowed.' }, 405)
 
   try {
-    const { admin, user } = await requireFunctionContext(request)
+    const { admin, user } = await requireFunctionContext(request, { registeredOnly: true })
     const body = await readJson(request)
     const workspaceId = typeof body.workspaceId === 'string' ? body.workspaceId : ''
     const playerId = typeof body.playerId === 'string' ? body.playerId : ''

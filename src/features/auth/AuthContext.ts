@@ -8,11 +8,21 @@ export interface AuthContextValue {
   user: User | null
   isAuthenticated: boolean
   isRegistered: boolean
+  isLegacyAnonymous: boolean
   isLoading: boolean
   error: string | null
   retry: () => Promise<void>
-  createAccount: (email: string, displayName: string) => Promise<void>
-  signInWithEmail: (email: string) => Promise<void>
+  createAccount: (
+    email: string,
+    displayName: string,
+    password: string,
+  ) => Promise<void>
+  signInWithPassword: (email: string, password: string) => Promise<void>
+  upgradeAnonymousOwnerAccount: (
+    email: string,
+    displayName: string,
+    password: string,
+  ) => Promise<void>
   updateDisplayName: (displayName: string) => Promise<void>
   signOut: () => Promise<void>
 }

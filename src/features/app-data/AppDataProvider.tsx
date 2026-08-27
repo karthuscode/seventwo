@@ -37,6 +37,7 @@ import {
 import { isStandardPaymentMethod } from '../../utils/paymentMethods'
 import { BrandBackdrop } from '../../components/BrandBackdrop'
 import { useAuth } from '../../hooks/useAuth'
+import { canChangeMemberRole } from '../../utils/roles'
 
 export function AppDataProvider({ children }: PropsWithChildren) {
   const { repository, selectedWorkspace: workspace } = useWorkspaces()
@@ -706,6 +707,9 @@ export function AppDataProvider({ children }: PropsWithChildren) {
     updateWorkspaceMemberRole: async (userId: string, role: 'HOST' | 'PLAYER') => {
       const member = data.workspaceMembers.find((item) => item.userId === userId)
       if (!member || member.role === 'OWNER') throw new Error('The workspace owner cannot be changed here.')
+      if (!canChangeMemberRole(workspace.role, member.role, role)) {
+        throw new Error('Only the workspace owner can change member roles.')
+      }
       await runMutation(() => repository.updateWorkspaceMemberRole(workspace.id, userId, role))
       setData((current) => ({
         ...current,

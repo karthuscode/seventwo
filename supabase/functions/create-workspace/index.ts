@@ -1,6 +1,5 @@
 import { corsHeaders, handleError, jsonResponse, readJson, RequestError } from '../_shared/http.ts'
 import { requireFunctionContext } from '../_shared/supabase.ts'
-import { generateUniqueWorkspaceCode } from '../_shared/workspace-code.ts'
 
 Deno.serve(async (request) => {
   if (request.method === 'OPTIONS') {
@@ -11,17 +10,16 @@ Deno.serve(async (request) => {
   }
 
   try {
-    const { admin, user } = await requireFunctionContext(request)
+    const { admin, user } = await requireFunctionContext(request, { registeredOnly: true })
     const body = await readJson(request)
     const name = typeof body.name === 'string' ? body.name.trim() : ''
     if (!name || name.length > 80) {
       throw new RequestError(400, 'Workspace name must be 1–80 characters.')
     }
 
-    const { accessCode, digest } = await generateUniqueWorkspaceCode(admin)
     const { data: workspace, error: workspaceError } = await admin
       .from('workspaces')
-      .insert({ name, access_code_digest: digest })
+      .insert({ name })
       .select('id, name, created_at')
       .single()
     if (workspaceError) throw workspaceError
@@ -45,7 +43,6 @@ Deno.serve(async (request) => {
         createdAt: workspace.created_at,
         role: 'OWNER',
       },
-      accessCode,
     })
   } catch (error) {
     return handleError(error)

@@ -10,6 +10,7 @@
     "lint": "oxlint",
     "test:settlement": "node --experimental-strip-types scripts/settlement-check.ts",
     "test:planning": "node --experimental-strip-types scripts/planning-check.ts",
+    "test:auth": "node --experimental-strip-types scripts/auth-membership-check.ts",
     "preview": "vite preview"
   },
   "dependencies": {

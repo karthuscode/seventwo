@@ -16,7 +16,6 @@ import type { Workspace } from '../../types/domain'
 import { useAuth } from '../../hooks/useAuth'
 import {
   WorkspaceContext,
-  type RevealedWorkspaceCode,
   type WorkspaceContextValue,
 } from './WorkspaceContext'
 
@@ -30,8 +29,6 @@ export function WorkspaceProvider({ children }: PropsWithChildren) {
   const [selectedWorkspaceId, setSelectedWorkspaceId] = useState<string | null>(
     null,
   )
-  const [revealedCode, setRevealedCode] =
-    useState<RevealedWorkspaceCode | null>(null)
   const [revealedPlayerInvite, setRevealedPlayerInvite] = useState<WorkspaceContextValue['revealedPlayerInvite']>(null)
   const [joinNotice, setJoinNotice] = useState<WorkspaceContextValue['joinNotice']>(null)
   const [isLoading, setIsLoading] = useState(true)
@@ -51,7 +48,6 @@ export function WorkspaceProvider({ children }: PropsWithChildren) {
           return current
         }
         if (savedWorkspaceExists) return savedWorkspaceId
-        if (nextWorkspaces.length === 1) return nextWorkspaces[0].id
         return null
       })
       setError(null)
@@ -86,53 +82,6 @@ export function WorkspaceProvider({ children }: PropsWithChildren) {
       const result = await repository.createWorkspace(cleanName)
       setWorkspaces((current) => upsertWorkspace(current, result.workspace))
       selectWorkspace(result.workspace.id)
-      setRevealedCode({
-        workspaceId: result.workspace.id,
-        workspaceName: result.workspace.name,
-        code: result.accessCode,
-      })
-    } catch (caughtError) {
-      setError(toMessage(caughtError))
-      throw caughtError
-    } finally {
-      setIsSaving(false)
-    }
-  }
-
-  async function joinWorkspace(code: string) {
-    const normalizedCode = code.replace(/\s/g, '')
-    if (!/^\d{6}$/.test(normalizedCode)) {
-      throw new Error('Enter exactly six digits.')
-    }
-    setIsSaving(true)
-    setError(null)
-    try {
-      const workspace = await repository.joinWorkspace(normalizedCode)
-      setWorkspaces((current) => upsertWorkspace(current, workspace))
-      setJoinNotice({ workspaceName: workspace.name, role: workspace.role })
-      selectWorkspace(workspace.id)
-    } catch (caughtError) {
-      setError(toMessage(caughtError))
-      throw caughtError
-    } finally {
-      setIsSaving(false)
-    }
-  }
-
-  async function rotateWorkspaceCode(workspaceId: string) {
-    const workspace = workspaces.find((item) => item.id === workspaceId)
-    if (!workspace || workspace.role !== 'OWNER') {
-      throw new Error('Only a workspace owner can regenerate its code.')
-    }
-    setIsSaving(true)
-    setError(null)
-    try {
-      const code = await repository.rotateWorkspaceCode(workspaceId)
-      setRevealedCode({
-        workspaceId,
-        workspaceName: workspace.name,
-        code,
-      })
     } catch (caughtError) {
       setError(toMessage(caughtError))
       throw caughtError
@@ -202,20 +151,16 @@ export function WorkspaceProvider({ children }: PropsWithChildren) {
     repository,
     workspaces,
     selectedWorkspace,
-    revealedCode,
     revealedPlayerInvite,
     joinNotice,
     isLoading,
     isSaving,
     error,
     createWorkspace,
-    joinWorkspace,
     selectWorkspace,
-    rotateWorkspaceCode,
     createPlayerInvite,
     redeemPlayerInvite,
     joinWithInviteCode,
-    clearRevealedCode: () => setRevealedCode(null),
     clearRevealedPlayerInvite: () => setRevealedPlayerInvite(null),
     clearJoinNotice: () => setJoinNotice(null),
     clearError: () => setError(null),

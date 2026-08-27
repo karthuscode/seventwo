@@ -40,7 +40,7 @@ export interface Workspace {
 
 export interface WorkspaceAccessResult {
   workspace: Workspace
-  accessCode: string
+  accessCode?: string
 }
 
 export interface Player {

@@ -162,15 +162,6 @@ export class LocalStorageRepository implements AppRepository {
     nickname?: string,
   ): Promise<JoinInviteResult> {
     const state = this.readState()
-    const hostWorkspaceId = Object.entries(state.accessCodes).find(
-      ([, savedCode]) => savedCode === code,
-    )?.[0]
-    if (hostWorkspaceId) {
-      const workspace = state.workspaces.find((item) => item.id === hostWorkspaceId)
-      if (!workspace) throw new Error('Invite code not recognized.')
-      return { status: 'JOINED', workspace }
-    }
-
     const invite = state.playerInviteCodes[code]
     const workspace = state.workspaces.find((item) => item.id === invite?.workspaceId)
     if (!invite || !workspace) throw new Error('Invite code not recognized.')

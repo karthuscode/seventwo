@@ -1,7 +1,6 @@
 import { useState } from 'react'
 import { NavLink, Outlet } from 'react-router-dom'
 import { BrandBackdrop } from './BrandBackdrop'
-import { WorkspaceCodeModal } from '../features/workspaces/WorkspaceCodeModal'
 import { WorkspaceMenu } from '../features/workspaces/WorkspaceMenu'
 import { useAppData } from '../hooks/useAppData'
 import { AccountModal } from '../features/auth/AccountModal'
@@ -84,7 +83,7 @@ export function AppLayout() {
             {repositoryKind === 'supabase' ? 'Shared workspace' : 'Local demo'}
           </p>
           <WorkspaceMenu triggerClassName="mt-2 min-h-11 w-full rounded-xl text-left text-sm font-semibold text-ink-secondary transition hover:bg-white/[0.055] hover:text-ink focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ink" />
-          {workspace.role === 'OWNER' ? <button type="button" onClick={() => setShowInvite(true)} className="mb-2 min-h-11 w-full rounded-xl text-left text-sm font-semibold text-ink-secondary transition hover:bg-white/[0.055] hover:text-ink">Invite players or hosts</button> : null}
+          {workspace.role === 'OWNER' ? <button type="button" onClick={() => setShowInvite(true)} className="mb-2 min-h-11 w-full rounded-xl text-left text-sm font-semibold text-ink-secondary transition hover:bg-white/[0.055] hover:text-ink">Invite player</button> : null}
           <AccountMenu placement="up" onOpenAccount={() => setShowAccount(true)} onOpenInvite={() => setShowInvite(true)} />
         </div>
       </aside>
@@ -135,7 +134,6 @@ export function AppLayout() {
       <div className="glass-raised bottom-nav fixed inset-x-3 z-40 rounded-2xl px-2 py-1 md:hidden">
         <Navigation playerView={playerView} />
       </div>
-      {!showInvite ? <WorkspaceCodeModal /> : null}
       {showAccount ? <AccountModal onClose={() => setShowAccount(false)} /> : null}
       {showInvite ? <InviteModal onClose={() => setShowInvite(false)} /> : null}
     </div>

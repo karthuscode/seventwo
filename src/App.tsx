@@ -18,6 +18,7 @@ import { BrandBackdrop } from './components/BrandBackdrop'
 import { PlanDetailPage } from './pages/PlanDetailPage'
 import { ProfilePage } from './pages/ProfilePage'
 import { useAppData } from './hooks/useAppData'
+import { AuthScreen, LegacyAnonymousUpgradeScreen } from './features/auth/AuthScreen'
 
 const router = createBrowserRouter([
   {
@@ -43,7 +44,7 @@ function OperatorOnly({ children }: { children: ReactNode }) {
 }
 
 export default function App() {
-  const { isAuthenticated, isLoading, error, retry } = useAuth()
+  const { isAuthenticated, isLoading, isLegacyAnonymous } = useAuth()
 
   if (isLoading) {
     return (
@@ -54,21 +55,9 @@ export default function App() {
     )
   }
 
-  if (!isAuthenticated) {
-    return (
-      <main className="relative flex min-h-svh items-center justify-center bg-app-bg px-4 text-ink">
-        <BrandBackdrop />
-        <div className="relative z-10 w-full max-w-md rounded-2xl bg-red-950/20 p-6 text-center">
-          <div className="glass-raised mx-auto flex size-12 items-center justify-center rounded-xl font-black text-ink">72</div>
-          <h1 className="mt-4 text-xl font-bold text-ink">SevenTwo could not start</h1>
-          <p className="mt-2 text-sm leading-6 text-red-200">{error ?? 'Anonymous access is unavailable.'}</p>
-          <button type="button" onClick={() => void retry()} className="mt-5 min-h-12 rounded-xl bg-ink px-5 font-bold text-app-bg">
-            Try again
-          </button>
-        </div>
-      </main>
-    )
-  }
+  if (isLegacyAnonymous) return <LegacyAnonymousUpgradeScreen />
+
+  if (!isAuthenticated) return <AuthScreen />
 
   return (
     <WorkspaceProvider>
