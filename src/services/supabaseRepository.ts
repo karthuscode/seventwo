@@ -6,7 +6,7 @@ import type {
   PlanOption,
   PlanVote,
   Player,
-  PlayerInviteResult,
+  WorkspaceInviteResult,
   JoinInviteResult,
   PayoutAllocation,
   Session,
@@ -177,15 +177,14 @@ export class SupabaseRepository implements AppRepository {
   async createWorkspace(name: string): Promise<WorkspaceAccessResult> {
     return this.invokeFunction<WorkspaceAccessResult>('create-workspace', {
       name: name.trim(),
+      requestId: crypto.randomUUID(),
     })
   }
 
-  async joinWorkspace(code: string): Promise<Workspace> {
-    const result = await this.invokeFunction<{ workspace: Workspace }>(
-      'join-workspace',
-      { code },
-    )
-    return result.workspace
+  async getWorkspaceInvite(workspaceId: string): Promise<WorkspaceInviteResult> {
+    return this.invokeFunction<WorkspaceInviteResult>('get-workspace-invite', {
+      workspaceId,
+    })
   }
 
   async rotateWorkspaceCode(workspaceId: string): Promise<string> {
@@ -196,30 +195,12 @@ export class SupabaseRepository implements AppRepository {
     return result.accessCode
   }
 
-  async createPlayerInvite(
-    workspaceId: string,
-    playerId?: string,
-  ): Promise<PlayerInviteResult> {
-    return this.invokeFunction<PlayerInviteResult>(
-      'create-player-invite',
-      playerId ? { workspaceId, playerId } : { workspaceId },
-    )
-  }
-
-  async redeemPlayerInvite(code: string): Promise<Workspace> {
-    const result = await this.invokeFunction<{ workspace: Workspace }>(
-      'redeem-player-invite',
-      { code },
-    )
-    return result.workspace
-  }
-
   async joinWithInviteCode(
     code: string,
     nickname?: string,
   ): Promise<JoinInviteResult> {
     return this.invokeFunction<JoinInviteResult>(
-      'redeem-invite-code',
+      'join-workspace',
       nickname ? { code, nickname } : { code },
     )
   }
@@ -665,6 +646,15 @@ export class SupabaseRepository implements AppRepository {
       .neq('role', 'OWNER').select('user_id').single()
     throwIfError(error)
     if (!data) throw new Error('Workspace member could not be updated.')
+  }
+
+  async linkPlayerToMember(workspaceId: string, playerId: string, userId: string): Promise<void> {
+    const { error } = await this.client.rpc('link_player_to_registered_member', {
+      target_workspace_id: workspaceId,
+      target_player_id: playerId,
+      target_user_id: userId,
+    })
+    throwIfError(error)
   }
 
   async importData(workspaceId: string, data: AppData): Promise<void> {

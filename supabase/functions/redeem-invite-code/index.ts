@@ -28,6 +28,16 @@ Deno.serve(async (request) => {
         .eq('id', invite.workspace_id).single()
       if (workspaceError) throw workspaceError
 
+      const { data: existingMembership } = await admin
+        .from('workspace_members')
+        .select('workspace_id')
+        .eq('workspace_id', invite.workspace_id)
+        .eq('user_id', user.id)
+        .maybeSingle()
+      if (existingMembership) {
+        throw new RequestError(409, "You're already a member of this workspace.")
+      }
+
       if (!invite.player_id && !nickname) {
         return jsonResponse({ status: 'NICKNAME_REQUIRED', workspaceName: workspace.name })
       }
@@ -47,8 +57,14 @@ Deno.serve(async (request) => {
         rpcArguments,
       )
       if (redemptionError) {
-        if (redemptionError.message.includes('A Player with this nickname')) {
-          throw new RequestError(409, redemptionError.message)
+        if (redemptionError.message.includes('already has a player')) {
+          throw new RequestError(409, "You're already a member of this workspace.")
+        }
+        if (redemptionError.message.includes('nickname')) {
+          throw new RequestError(409, 'That nickname is already in use.')
+        }
+        if (redemptionError.message.includes('Invite is invalid or expired')) {
+          throw new RequestError(404, 'Invalid or expired invite code.')
         }
         throw redemptionError
       }
@@ -71,7 +87,7 @@ Deno.serve(async (request) => {
     }
 
     await recordJoinFailure(admin, user.id, currentAttempt)
-    throw new RequestError(404, 'Invite code not recognized.')
+    throw new RequestError(404, 'Invalid or expired invite code.')
   } catch (error) {
     return handleError(error)
   }

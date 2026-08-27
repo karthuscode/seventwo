@@ -20,6 +20,7 @@ export function PlayerDetailPage() {
     transactions,
     updatePlayer,
     deletePlayer,
+    workspace,
   } = useAppData()
   const [showEdit, setShowEdit] = useState(false)
   const [pendingAction, setPendingAction] = useState<PendingAction>(null)
@@ -38,6 +39,7 @@ export function PlayerDetailPage() {
   }
 
   const player = selectedPlayer
+  const canManageRoster = workspace.role === 'OWNER' || workspace.role === 'HOST'
 
   const stats = calculatePlayerLifetimeStats(
     player.id,
@@ -103,7 +105,7 @@ export function PlayerDetailPage() {
         eyebrow="Player profile"
         title={player.nickname}
         description={player.archivedAt ? 'Archived player · retained for history and statistics.' : 'Active saved player'}
-        action={
+        action={canManageRoster ? (
           <div className="flex flex-wrap gap-2">
             <Button variant="secondary" onClick={() => setShowEdit(true)}>Edit nickname</Button>
             {player.archivedAt ? (
@@ -116,7 +118,7 @@ export function PlayerDetailPage() {
               </Button>
             )}
           </div>
-        }
+        ) : undefined}
       />
       <dl className="glass-surface grid grid-cols-2 gap-x-6 gap-y-7 rounded-2xl p-5 lg:grid-cols-4 lg:p-6">
         {statItems.map((stat) => (
@@ -137,18 +139,18 @@ export function PlayerDetailPage() {
             {stats.incompleteSessions} incomplete {stats.incompleteSessions === 1 ? 'session is' : 'sessions are'} excluded from financial totals.
           </p>
         ) : null}
-        {hasHistory ? (
+        {canManageRoster && hasHistory ? (
           <p className="mt-3 text-sm text-ink-secondary">
             This player has historical data, so they can be archived but not permanently deleted.
           </p>
-        ) : (
+        ) : canManageRoster ? (
           <div className="mt-4 flex flex-wrap items-center justify-between gap-3 border-t border-line pt-4">
             <p className="text-sm text-ink-muted">No session history exists for this player.</p>
             <Button variant="danger" onClick={() => setPendingAction('delete')} disabled={isSaving}>
               Delete permanently
             </Button>
           </div>
-        )}
+        ) : null}
         {error ? <p role="alert" className="mt-3 text-sm text-red-300">{error}</p> : null}
       </section>
 

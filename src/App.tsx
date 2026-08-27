@@ -18,7 +18,7 @@ import { BrandBackdrop } from './components/BrandBackdrop'
 import { PlanDetailPage } from './pages/PlanDetailPage'
 import { ProfilePage } from './pages/ProfilePage'
 import { useAppData } from './hooks/useAppData'
-import { AuthScreen, LegacyAnonymousUpgradeScreen } from './features/auth/AuthScreen'
+import { AuthScreen } from './features/auth/AuthScreen'
 
 const router = createBrowserRouter([
   {
@@ -44,7 +44,7 @@ function OperatorOnly({ children }: { children: ReactNode }) {
 }
 
 export default function App() {
-  const { isAuthenticated, isLoading, isLegacyAnonymous } = useAuth()
+  const { isAuthenticated, isLoading } = useAuth()
 
   if (isLoading) {
     return (
@@ -54,8 +54,6 @@ export default function App() {
       </main>
     )
   }
-
-  if (isLegacyAnonymous) return <LegacyAnonymousUpgradeScreen />
 
   if (!isAuthenticated) return <AuthScreen />
 

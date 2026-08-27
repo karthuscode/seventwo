@@ -38,6 +38,7 @@ import { isStandardPaymentMethod } from '../../utils/paymentMethods'
 import { BrandBackdrop } from '../../components/BrandBackdrop'
 import { useAuth } from '../../hooks/useAuth'
 import { canChangeMemberRole } from '../../utils/roles'
+import { canRecordVoteForPlayer } from '../../utils/planning'
 
 export function AppDataProvider({ children }: PropsWithChildren) {
   const { repository, selectedWorkspace: workspace } = useWorkspaces()
@@ -668,6 +669,10 @@ export function AppDataProvider({ children }: PropsWithChildren) {
       playerId: string,
       response: PlanVoteResponse,
     ) => {
+      const player = data.players.find((item) => item.id === playerId)
+      if (!player || !canRecordVoteForPlayer(workspace.role, currentUserId, player)) {
+        throw new Error('You cannot record this Player response.')
+      }
       const existing = data.planVotes.find(
         (item) => item.optionId === optionId && item.playerId === playerId,
       )
@@ -716,6 +721,20 @@ export function AppDataProvider({ children }: PropsWithChildren) {
         workspaceMembers: current.workspaceMembers.map((item) =>
           item.userId === userId ? { ...item, role } : item,
         ),
+      }))
+    },
+    linkPlayerToMember: async (playerId: string, userId: string) => {
+      if (workspace.role !== 'OWNER') throw new Error('Only the workspace owner can link Players.')
+      const player = data.players.find((item) => item.id === playerId)
+      const member = data.workspaceMembers.find((item) => item.userId === userId)
+      if (!player || player.userId || !member) throw new Error('Player or member is not available to link.')
+      if (data.players.some((item) => item.userId === userId)) {
+        throw new Error('This member already has a linked Player.')
+      }
+      await runMutation(() => repository.linkPlayerToMember(workspace.id, playerId, userId))
+      setData((current) => ({
+        ...current,
+        players: current.players.map((item) => item.id === playerId ? { ...item, userId } : item),
       }))
     },
     importLocalData: async () => {

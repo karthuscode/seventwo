@@ -58,7 +58,6 @@ export function AddPlayerModal({ onClose, onAdded }: AddPlayerModalProps) {
               setNickname(event.target.value)
               setError('')
             }}
-            placeholder="e.g. Bendi"
             className="input"
           />
           {error ? <p className="mt-2 text-sm text-red-300">{error}</p> : null}

@@ -2,7 +2,6 @@ import { useState } from 'react'
 import { Modal } from '../../components/Modal'
 import { Button } from '../../components/Button'
 import { useAuth } from '../../hooks/useAuth'
-import { JoinWorkspaceForm } from '../workspaces/JoinWorkspaceForm'
 
 export function AccountModal({ onClose }: { onClose: () => void }) {
   const { mode, user, isRegistered, updateDisplayName, signOut } = useAuth()
@@ -31,7 +30,7 @@ export function AccountModal({ onClose }: { onClose: () => void }) {
     return (
       <Modal title="Account" onClose={onClose}>
         <p className="text-sm leading-6 text-ink-secondary">
-          Accounts and cross-device Player invites are available when Supabase is configured. Local demo data remains on this device.
+          Accounts and cross-device workspace invites are available when Supabase is configured. Local demo data remains on this device.
         </p>
       </Modal>
     )
@@ -43,7 +42,6 @@ export function AccountModal({ onClose }: { onClose: () => void }) {
         <div className="space-y-6">
           <div>
             <p className="text-sm font-bold text-ink">{user?.email}</p>
-            <p className="mt-1 text-xs text-ink-muted">Registered account</p>
           </div>
           <form
             onSubmit={(event) => {
@@ -55,9 +53,6 @@ export function AccountModal({ onClose }: { onClose: () => void }) {
             <label className="block"><span className="label">Display name</span><input className="input" value={displayName} onChange={(event) => setDisplayName(event.target.value)} /></label>
             <Button type="submit" variant="secondary" disabled={isSaving}>Save name</Button>
           </form>
-          <div className="border-t border-line pt-5">
-            <JoinWorkspaceForm onJoined={onClose} />
-          </div>
           <Button variant="ghost" onClick={() => void run(signOut, 'Signed out.')} disabled={isSaving}>Sign out</Button>
         </div>
       ) : (

@@ -11,6 +11,9 @@ verify_jwt = false
 [functions.join-workspace]
 verify_jwt = false
 
+[functions.get-workspace-invite]
+verify_jwt = false
+
 [functions.rotate-workspace-code]
 verify_jwt = false
 

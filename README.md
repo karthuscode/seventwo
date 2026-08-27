@@ -1,36 +1,35 @@
 # SevenTwo
 
-SevenTwo is a mobile-first PWA for running live Texas Hold'em home games: poker groups, players, game-night planning, buy-ins, rebuys, payments, cash-outs, bank reconciliation, history, and focused player statistics. It never tracks cards, hands, pots, or poker strategy.
+SevenTwo is a mobile-first PWA for running live Texas Hold'em home games: poker groups, Players, game-night planning, buy-ins, rebuys, payments, cash-outs, bank reconciliation, history, and focused statistics. It never tracks cards, hands, pots, or poker strategy.
 
 ## Current scope
 
-- Independent workspaces with `OWNER`, `HOST`, and registered `PLAYER` roles
-- Email/password SevenTwo accounts with display names
-- Workspace Gateway for joining or creating poker groups after sign-in
-- Single-use Player invitations; owners promote trusted players to Host when needed
-- Player invitations can link existing poker history or create a new registered Player after nickname selection
-- Concrete date/time Plans, registered-player votes, Host proxy votes for guests, turnout indicators, confirmation, and Plan → Session conversion
-- Reusable players; safe rename, archive, restore, and deletion rules
-- Sessions with configurable RON ↔ chips, buy-ins, rebuys, Cash/Card receipt state, cash-out, pending offsets, split payouts, and settlement
-- Workspace-scoped Supabase persistence with RLS, plus coherent local/demo persistence
+- Email/password accounts with username, email, and password
+- Workspace Gateway with explicit create, join, and workspace selection
+- One `OWNER`, plus `HOST` and `PLAYER` memberships
+- One reusable six-digit workspace invite code; every new member joins as `PLAYER`
+- Automatic linked `REGISTERED` Player identity for workspace creators and joiners
+- Owner-controlled role changes and safe historical `UNREGISTERED` Player linking
+- Concrete date/time Plans, self-voting for registered Players, proxy voting for unregistered Players, turnout indicators, confirmation, and Plan → Session conversion
+- Player lifecycle management, configurable sessions, Cash/Card payments, cash-out, payout allocation, settlement, history, and statistics
+- Supabase persistence with workspace-scoped RLS and a local/demo repository
 - Responsive installable PWA
 
-## Architecture
+## Identity and access
 
 ```text
-Device
-  ↓
-Supabase Auth (registered email/password user)
+Email/password account
   ↓
 workspace_members (OWNER / HOST / PLAYER)
   ↓
-RLS-protected workspace data
-  ├── canonical poker players (optionally linked to auth users)
-  ├── Plans / times / votes
-  └── Sessions / participants / financial ledger / settlement
+RLS-protected workspace
+  ↓
+linked poker Player (REGISTERED)
 ```
 
-Poker `Player` records remain the canonical table identities. Email registration alone never creates one. A Player invite either links a registered user to an exact existing row—preserving every historical session—or creates a new registered Player after the invited user chooses a unique nickname. Pages use the asynchronous repository boundary; persistence and settlement formulas stay outside UI components.
+An account and a poker Player remain separate records. Creating or joining a workspace creates one linked Player in that workspace. Manually added poker participants remain `UNREGISTERED` and cannot sign in. An owner can link an existing historical unregistered Player only to an eligible registered workspace member; the original Player ID, sessions, and statistics stay intact.
+
+Every workspace has exactly one protected `OWNER`. A workspace invite always creates `PLAYER` membership. The owner may then promote that member to `HOST` or demote a Host back to Player. Normal UI cannot transfer or downgrade ownership.
 
 ## Local setup
 
@@ -40,90 +39,122 @@ cp .env.example .env.local
 npm run dev
 ```
 
-Leave the Supabase variables empty for local/demo mode. Local workspace/player invite codes do not sync across devices.
+Leave the Supabase values empty for local/demo mode. Local data and invite codes remain on that browser only.
 
-Frontend variables (public client settings only):
+Frontend variables are public client settings:
 
 ```dotenv
 VITE_SUPABASE_URL=https://your-project.supabase.co
 VITE_SUPABASE_ANON_KEY=your-publishable-or-anon-key
 ```
 
-Never put the database password, service-role key, Player invite code, or `WORKSPACE_CODE_PEPPER` in a frontend variable or Git.
+Never place a database password, service-role key, workspace code, or `WORKSPACE_CODE_PEPPER` in frontend variables or Git.
 
 ## Supabase setup
 
-1. In Authentication → Providers, enable Email with password sign-in/sign-up.
-2. Disable email confirmations for the current MVP so registration signs the user in immediately.
-3. Disable Anonymous Sign-Ins after existing guest-owner workspaces have been upgraded.
-4. Add the production Site URL and local development URL to Authentication → URL Configuration.
-5. Apply migrations in filename order (`supabase db push` when using a linked CLI project), including:
-   - `20260901000000_phase4_player_role.sql`
-   - `20260901001000_phase4_accounts_planning.sql`
-   - `20260901002000_phase4_flexible_player_invites.sql`
-   - `20260902000000_account_first_membership.sql`
-6. Keep the existing server-side pepper, or set a new project secret only for a fresh database:
+In Authentication → Providers:
 
-   ```bash
-   supabase secrets set WORKSPACE_CODE_PEPPER=replace-with-at-least-32-random-characters
-   ```
+- Enable Email with password sign-up and sign-in.
+- Disable email confirmation for this MVP so registration returns a session immediately.
+- Disable Anonymous Sign-Ins after the legacy owner migration is complete.
+- Add production and localhost URLs under Authentication → URL Configuration.
 
-   Changing this value invalidates existing invite digests, so production must keep its current pepper.
-7. Deploy the functions (all authenticate the bearer session themselves):
+Apply every migration in filename order, including:
 
-   ```bash
-   supabase functions deploy create-workspace --no-verify-jwt
-   supabase functions deploy create-player-invite --no-verify-jwt
-   supabase functions deploy redeem-player-invite --no-verify-jwt
-   supabase functions deploy redeem-invite-code --no-verify-jwt
-   supabase functions deploy upgrade-anonymous-owner --no-verify-jwt
-   ```
-8. Keep the two public `VITE_SUPABASE_*` variables configured in Cloudflare Pages. Phase 4 adds no new frontend secret.
+```text
+20260901000000_phase4_player_role.sql
+20260901001000_phase4_accounts_planning.sql
+20260901002000_phase4_flexible_player_invites.sql
+20260902000000_account_first_membership.sql
+20260903000000_workspace_creator_player.sql
+```
 
-Google sign-in is intentionally not enabled in this pass. It can be added later through Supabase provider configuration and manual identity linking without changing the workspace/player model.
-
-## Identity, roles, and invites
-
-- New users register with username, email, and password. Username is display-only and may repeat; email is the login identity.
-- Creating a workspace makes the current registered user the single `OWNER`.
-- Player invite codes are HMAC-protected, 14-day, single-use invitations. Redemption requires a registered account and always creates `PLAYER` membership first.
-- An `OWNER` can promote `PLAYER` to `HOST` or demote `HOST` to `PLAYER`; the `OWNER` role is protected from ordinary role controls.
-- A Player invite either links one exact unclaimed Player row or asks for a unique nickname before atomically creating a new Player.
-- A nickname collision never silently claims or duplicates a historical Player. The owner must issue a code tied to that exact unregistered profile, or the invited user must choose another nickname.
-- Eight failed code attempts within the existing 15-minute window trigger a temporary cooldown.
-- Legacy workspace Host-code functions may remain deployed temporarily for backward compatibility, but the normal UI no longer exposes Host access codes.
-
-## Legacy owner upgrade
-
-Older production workspaces may have an anonymous Supabase user as `OWNER`. The frontend detects a persisted anonymous session and shows an Upgrade account screen instead of the normal app. The `upgrade-anonymous-owner` Edge Function verifies that the current anonymous `auth.uid()` owns at least one workspace, then converts that same auth user to email/password and writes `user_profiles`. Because the `user_id` is preserved, workspace IDs, Players, Sessions, Plans, statistics, and the single OWNER membership remain intact.
-
-Legacy anonymous `HOST` memberships are not used for new joins. They may remain in the database during migration, but new UI does not create or advertise anonymous Host access.
-
-Safe production rollout:
-
-1. Apply additive migrations through `20260902000000_account_first_membership.sql`.
-2. Deploy `create-workspace`, `create-player-invite`, `redeem-player-invite`, `redeem-invite-code`, and `upgrade-anonymous-owner`.
-3. Confirm Supabase Email password sign-in/sign-up is enabled and email confirmation is disabled.
-4. Test the legacy owner upgrade on a staging/local Supabase project with copied-safe data.
-5. Upgrade each existing anonymous production OWNER from the old browser session.
-6. Verify each workspace still has exactly one OWNER and all Players, Sessions, Plans, and financial history are intact.
-7. Disable Anonymous Sign-Ins once no anonymous OWNER still needs upgrade.
-8. Deploy the frontend that removes anonymous and Host-code onboarding.
-
-## Security
-
-Authentication alone grants no workspace access. RLS checks membership for every workspace row. OWNER/HOST may administer sessions and Plans; PLAYER may read relevant Plans, vote only for its linked Player, and read its own poker/session data. Player linking, code lookup, and legacy owner upgrade use server-only Edge Functions/RPCs. The browser never receives invite digests, the HMAC pepper, or the service-role key.
-
-## Commands
+Keep the existing production pepper. On a fresh project, set a strong server-only value:
 
 ```bash
-npm run dev
+supabase secrets set WORKSPACE_CODE_PEPPER=replace-with-at-least-32-random-characters
+```
+
+Changing the pepper invalidates existing invite digests.
+
+Deploy the active normal-flow functions:
+
+```bash
+supabase functions deploy create-workspace --no-verify-jwt
+supabase functions deploy get-workspace-invite --no-verify-jwt
+supabase functions deploy rotate-workspace-code --no-verify-jwt
+supabase functions deploy join-workspace --no-verify-jwt
+```
+
+Each function validates the bearer session itself. The service-role credential remains inside Supabase Functions only.
+
+## Workspace invite security
+
+- Codes are exactly six digits.
+- A server-side random UUID seed is generated with Web Crypto.
+- The visible code is derived server-side with HMAC-SHA-256 and `WORKSPACE_CODE_PEPPER`.
+- PostgreSQL stores the seed and an indexed HMAC digest, never the plaintext code.
+- Only the owner can view or rotate the code through server-side functions.
+- Rotation replaces the seed and digest, immediately invalidating the previous code.
+- Failed joins retain the existing cooldown/rate-limit protection.
+- Joining requires a registered session and grants `PLAYER` only.
+
+## Legacy owner migration
+
+The normal application never shows anonymous or upgrade-account onboarding. The internal `upgrade-anonymous-owner` function is retained only for a controlled one-time migration of an existing anonymous production owner.
+
+Before disabling Anonymous Sign-Ins:
+
+1. Back up the database and verify the legacy browser still holds the anonymous owner session.
+2. Apply migrations through `20260903000000_workspace_creator_player.sql` and deploy `upgrade-anonymous-owner` temporarily.
+3. Invoke the upgrade from a controlled migration client using that legacy bearer session and the intended email, username, and password.
+4. Sign in with the new email/password account and verify the same auth user ID, exactly one `OWNER`, the same workspace ID, and intact Players, Plans, Sessions, settlement, history, and statistics.
+5. Rotate the workspace invite code so the workspace has a recoverable Phase 4 code seed.
+6. Disable Anonymous Sign-Ins and remove the migration client. Keep the function undeployed or restricted after verification.
+
+Legacy anonymous `HOST` memberships may remain as historical rows during cleanup. No new anonymous or code-based Host access is created.
+
+## Safe rollout order
+
+1. Back up production and test the migration against a staging Supabase project.
+2. Configure Email/Password auth; keep Anonymous Sign-Ins temporarily enabled only if the legacy owner still needs migration.
+3. Apply `20260903000000_workspace_creator_player.sql` after all earlier migrations.
+4. Set or verify `WORKSPACE_CODE_PEPPER` without changing the existing production value.
+5. Deploy `create-workspace`, `get-workspace-invite`, `rotate-workspace-code`, and `join-workspace`.
+6. Complete and verify the legacy owner migration.
+7. Test create, refresh, invite, join, nickname collision, role promotion/demotion, historical linking, and Plan voting with two registered accounts.
+8. Disable Anonymous Sign-Ins.
+9. Deploy the frontend only after the backend checks pass.
+
+## Edge Function status
+
+Active normal flow:
+
+- `create-workspace`
+- `get-workspace-invite`
+- `rotate-workspace-code`
+- `join-workspace`
+
+Deprecated compatibility/migration paths:
+
+- `create-player-invite`
+- `redeem-player-invite`
+- `redeem-invite-code`
+- `transfer-anonymous-access`
+- `upgrade-anonymous-owner` (one-time owner migration only)
+
+The deprecated functions are not called by the normal frontend and can be removed after production migration and rollback windows close.
+
+## Verification commands
+
+```bash
 npm run lint
 npm run typecheck
 npm run test:settlement
 npm run test:planning
 npm run test:auth
 npm run build
+git diff --check
 ```
 
 See [docs/ROADMAP.md](docs/ROADMAP.md).

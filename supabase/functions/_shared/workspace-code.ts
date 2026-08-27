@@ -20,6 +20,17 @@ export async function digestWorkspaceCode(code: string): Promise<string> {
   return digestSecret(code)
 }
 
+export async function deriveWorkspaceCode(seed: string): Promise<string> {
+  for (let counter = 0; counter < 20; counter += 1) {
+    const digest = await digestSecret(`WORKSPACE_INVITE:${seed}:${counter}`)
+    const value = Number.parseInt(digest.slice(0, 6), 16)
+    if (value < ACCEPTED_RANDOM_SPACE) {
+      return String(value % CODE_SPACE).padStart(6, '0')
+    }
+  }
+  throw new Error('Unable to derive a workspace invite code.')
+}
+
 export async function digestSecret(value: string): Promise<string> {
   const pepper = Deno.env.get('WORKSPACE_CODE_PEPPER')
   if (!pepper || pepper.length < 32) {
@@ -71,6 +82,24 @@ export async function generateUniqueWorkspaceCode(
   }
 
   throw new Error('Unable to allocate a unique workspace code.')
+}
+
+export async function allocateWorkspaceInvite(
+  admin: SupabaseClient,
+): Promise<{ accessCode: string; digest: string; seed: string }> {
+  for (let attempt = 0; attempt < 20; attempt += 1) {
+    const seed = crypto.randomUUID()
+    const accessCode = await deriveWorkspaceCode(seed)
+    const digest = await digestWorkspaceCode(accessCode)
+    const { data, error } = await admin
+      .from('workspaces')
+      .select('id')
+      .eq('access_code_digest', digest)
+      .maybeSingle()
+    if (error) throw error
+    if (!data) return { accessCode, digest, seed }
+  }
+  throw new Error('Unable to allocate a unique workspace invite code.')
 }
 
 export function isWorkspaceCode(value: unknown): value is string {

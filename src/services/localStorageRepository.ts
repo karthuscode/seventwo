@@ -12,7 +12,7 @@ import type {
   Plan,
   PlanVote,
   Player,
-  PlayerInviteResult,
+  WorkspaceInviteResult,
   JoinInviteResult,
   PayoutAllocation,
   Session,
@@ -54,6 +54,14 @@ export class LocalStorageRepository implements AppRepository {
       role: 'OWNER',
     }
     const accessCode = createLocalCode(new Set(Object.values(state.accessCodes)))
+    const ownerPlayer: Player = {
+      id: crypto.randomUUID(),
+      workspaceId: workspace.id,
+      nickname: 'Local host',
+      createdAt: workspace.createdAt,
+      archivedAt: null,
+      userId: LOCAL_USER_ID,
+    }
     this.writeState({
       ...state,
       workspaces: [...state.workspaces, workspace],
@@ -61,6 +69,7 @@ export class LocalStorageRepository implements AppRepository {
         ...state.dataByWorkspace,
         [workspace.id]: {
           ...emptyAppData(),
+          players: [ownerPlayer],
           workspaceMembers: [{
             workspaceId: workspace.id,
             userId: LOCAL_USER_ID,
@@ -76,24 +85,21 @@ export class LocalStorageRepository implements AppRepository {
     return { workspace, accessCode }
   }
 
-  async joinWorkspace(code: string): Promise<Workspace> {
-    if (!/^\d{6}$/.test(code)) {
-      throw new Error('Enter exactly six digits.')
-    }
+  async getWorkspaceInvite(workspaceId: string): Promise<WorkspaceInviteResult> {
     const state = this.readState()
-    const workspaceId = Object.entries(state.accessCodes).find(
-      ([, savedCode]) => savedCode === code,
-    )?.[0]
     const workspace = state.workspaces.find((item) => item.id === workspaceId)
-    if (!workspace) throw new Error('Workspace code not found in this local demo.')
-    return workspace
+    const inviteCode = state.accessCodes[workspaceId]
+    if (!workspace || workspace.role !== 'OWNER' || !inviteCode) {
+      throw new Error('Only the workspace owner can view its invite code.')
+    }
+    return { workspaceId, inviteCode }
   }
 
   async rotateWorkspaceCode(workspaceId: string): Promise<string> {
     const state = this.readState()
     const workspace = state.workspaces.find((item) => item.id === workspaceId)
     if (!workspace || workspace.role !== 'OWNER') {
-      throw new Error('Only a workspace owner can regenerate its code.')
+      throw new Error('Only the workspace owner can rotate its invite code.')
     }
     const accessCode = createLocalCode(new Set(Object.values(state.accessCodes)))
     this.writeState({
@@ -103,68 +109,14 @@ export class LocalStorageRepository implements AppRepository {
     return accessCode
   }
 
-  async createPlayerInvite(
-    workspaceId: string,
-    playerId?: string,
-  ): Promise<PlayerInviteResult> {
-    const state = this.readState()
-    const workspace = state.workspaces.find((item) => item.id === workspaceId)
-    const player = state.dataByWorkspace[workspaceId]?.players.find(
-      (item) => item.id === playerId,
-    )
-    if (!workspace || workspace.role !== 'OWNER') {
-      throw new Error('Only the workspace owner can invite a player.')
-    }
-    if (playerId && (!player || player.userId)) {
-      throw new Error('Choose an unlinked player identity.')
-    }
-    const inviteCode = createLocalCode(
-      new Set([...Object.keys(state.playerInviteCodes), ...Object.values(state.accessCodes)]),
-    )
-    const playerInviteCodes = Object.fromEntries(
-      Object.entries(state.playerInviteCodes).filter(
-        ([, item]) => !playerId || item.playerId !== playerId,
-      ),
-    )
-    this.writeState({
-      ...state,
-      playerInviteCodes: {
-        ...playerInviteCodes,
-        [inviteCode]: { workspaceId, playerId: playerId ?? null },
-      },
-    })
-    return {
-      workspaceId,
-      playerId: playerId ?? null,
-      playerNickname: player?.nickname ?? null,
-      inviteCode,
-      expiresAt: new Date(Date.now() + 14 * 24 * 60 * 60 * 1000).toISOString(),
-    }
-  }
-
-  async redeemPlayerInvite(code: string): Promise<Workspace> {
-    const state = this.readState()
-    const invite = state.playerInviteCodes[code]
-    if (!invite) throw new Error('Player invite is invalid or expired.')
-    const workspace = state.workspaces.find((item) => item.id === invite.workspaceId)
-    if (!workspace) throw new Error('Player invite is invalid or expired.')
-    this.writeState({
-      ...state,
-      playerInviteCodes: Object.fromEntries(
-        Object.entries(state.playerInviteCodes).filter(([savedCode]) => savedCode !== code),
-      ),
-    })
-    return workspace
-  }
-
   async joinWithInviteCode(
     code: string,
     nickname?: string,
   ): Promise<JoinInviteResult> {
     const state = this.readState()
-    const invite = state.playerInviteCodes[code]
-    const workspace = state.workspaces.find((item) => item.id === invite?.workspaceId)
-    if (!invite || !workspace) throw new Error('Invite code not recognized.')
+    const workspaceId = Object.entries(state.accessCodes).find(([, savedCode]) => savedCode === code)?.[0]
+    const workspace = state.workspaces.find((item) => item.id === workspaceId)
+    if (!workspace) throw new Error('Invalid workspace invite code.')
     const data = withWorkspaceId(
       state.dataByWorkspace[workspace.id] ?? emptyAppData(),
       workspace.id,
@@ -172,21 +124,18 @@ export class LocalStorageRepository implements AppRepository {
     const existingLinkedPlayer = data.players.find(
       (player) => player.userId === LOCAL_USER_ID,
     )
-    let linkedPlayerId = invite.playerId
+    let linkedPlayerId = existingLinkedPlayer?.id
     if (!linkedPlayerId) {
       const cleanNickname = nickname?.trim() ?? ''
       if (!cleanNickname) {
         return { status: 'NICKNAME_REQUIRED', workspaceName: workspace.name }
-      }
-      if (existingLinkedPlayer) {
-        throw new Error('This account already has a player in the workspace.')
       }
       const matchingPlayer = data.players.find(
         (player) => player.nickname.trim().toLocaleLowerCase() === cleanNickname.toLocaleLowerCase(),
       )
       if (matchingPlayer) {
         throw new Error(
-          'A Player with this nickname already exists. Ask the Owner for an invite linked to that profile, or choose a different nickname.',
+          'That nickname is already in use.',
         )
       }
       linkedPlayerId = crypto.randomUUID()
@@ -198,24 +147,19 @@ export class LocalStorageRepository implements AppRepository {
         archivedAt: null,
         userId: LOCAL_USER_ID,
       })
-    } else {
-      const invitedPlayer = data.players.find((player) => player.id === linkedPlayerId)
-      if (!invitedPlayer || (invitedPlayer.userId && invitedPlayer.userId !== LOCAL_USER_ID)) {
-        throw new Error('Player invite is invalid or expired.')
-      }
-      if (existingLinkedPlayer && existingLinkedPlayer.id !== linkedPlayerId) {
-        throw new Error('This account already has a player in the workspace.')
-      }
-      data.players = data.players.map((player) =>
-        player.id === linkedPlayerId ? { ...player, userId: LOCAL_USER_ID } : player,
-      )
+    }
+    if (!data.workspaceMembers.some((member) => member.userId === LOCAL_USER_ID)) {
+      data.workspaceMembers.push({
+        workspaceId: workspace.id,
+        userId: LOCAL_USER_ID,
+        role: 'PLAYER',
+        displayName: nickname?.trim() || 'Local player',
+        createdAt: new Date().toISOString(),
+      })
     }
     this.writeState({
       ...state,
       dataByWorkspace: { ...state.dataByWorkspace, [workspace.id]: data },
-      playerInviteCodes: Object.fromEntries(
-        Object.entries(state.playerInviteCodes).filter(([savedCode]) => savedCode !== code),
-      ),
     })
     return { status: 'JOINED', workspace, playerId: linkedPlayerId }
   }
@@ -591,6 +535,21 @@ export class LocalStorageRepository implements AppRepository {
         member.userId === userId && member.role !== 'OWNER' ? { ...member, role } : member,
       ),
     }))
+  }
+
+  async linkPlayerToMember(workspaceId: string, playerId: string, userId: string): Promise<void> {
+    this.updateData(workspaceId, (data) => {
+      const player = data.players.find((item) => item.id === playerId)
+      const member = data.workspaceMembers.find((item) => item.userId === userId)
+      if (!player || player.userId || !member) throw new Error('Player or member is not available to link.')
+      if (data.players.some((item) => item.userId === userId)) {
+        throw new Error('This member already has a linked Player.')
+      }
+      return {
+        ...data,
+        players: data.players.map((item) => item.id === playerId ? { ...item, userId } : item),
+      }
+    })
   }
 
   async importData(workspaceId: string, data: AppData): Promise<void> {

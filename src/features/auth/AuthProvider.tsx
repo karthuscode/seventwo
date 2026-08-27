@@ -16,7 +16,12 @@ export function AuthProvider({ children }: PropsWithChildren) {
     try {
       const { data, error: sessionError } = await supabase.auth.getSession()
       if (sessionError) throw sessionError
-      setSession(data.session)
+      if (data.session?.user.is_anonymous) {
+        await supabase.auth.signOut({ scope: 'local' })
+        setSession(null)
+      } else {
+        setSession(data.session)
+      }
     } catch (caughtError) {
       setSession(null)
       setError(toMessage(caughtError, 'Unable to start SevenTwo.'))
@@ -28,7 +33,7 @@ export function AuthProvider({ children }: PropsWithChildren) {
   useEffect(() => {
     if (!supabase) return
     const { data: listener } = supabase.auth.onAuthStateChange((_event, nextSession) => {
-      setSession(nextSession)
+      setSession(nextSession?.user.is_anonymous ? null : nextSession)
     })
     // Auth hydration is the external synchronization this effect owns.
     // oxlint-disable-next-line react/set-state-in-effect
@@ -67,33 +72,8 @@ export function AuthProvider({ children }: PropsWithChildren) {
     setSession(data.session)
   }
 
-  async function upgradeAnonymousOwnerAccount(
-    email: string,
-    displayName: string,
-    password: string,
-  ) {
-    if (!supabase || !session?.user.is_anonymous) {
-      throw new Error('A legacy guest-owner session is required.')
-    }
-    const cleanEmail = email.trim().toLowerCase()
-    const cleanName = normalizeDisplayName(displayName)
-    validateEmailPassword(cleanEmail, password)
-    const { error: upgradeError } = await supabase.functions.invoke(
-      'upgrade-anonymous-owner',
-      { body: { email: cleanEmail, displayName: cleanName, password } },
-    )
-    if (upgradeError) throw await toFunctionMessage(upgradeError)
-    await supabase.auth.signOut({ scope: 'local' })
-    const { data, error: signInError } = await supabase.auth.signInWithPassword({
-      email: cleanEmail,
-      password,
-    })
-    if (signInError) throw signInError
-    setSession(data.session)
-  }
-
   async function updateDisplayName(displayName: string) {
-    if (!supabase || !session || session.user.is_anonymous) throw new Error('Register your SevenTwo identity first.')
+    if (!supabase || !session || session.user.is_anonymous) throw new Error('Sign in to update your username.')
     const cleanName = normalizeDisplayName(displayName)
     const { error: authError } = await supabase.auth.updateUser({ data: { display_name: cleanName } })
     if (authError) throw authError
@@ -113,19 +93,16 @@ export function AuthProvider({ children }: PropsWithChildren) {
   }
 
   const isRegistered = Boolean(session?.user && !session.user.is_anonymous)
-  const isLegacyAnonymous = Boolean(session?.user?.is_anonymous)
   const value = {
     mode,
     user: (session?.user ?? null) as User | null,
     isAuthenticated: mode === 'local' || isRegistered,
     isRegistered,
-    isLegacyAnonymous,
     isLoading,
     error,
     retry: ensureSession,
     createAccount,
     signInWithPassword,
-    upgradeAnonymousOwnerAccount,
     updateDisplayName,
     signOut,
   }
@@ -158,17 +135,4 @@ async function upsertProfile(userId: string, displayName: string): Promise<void>
     display_name: displayName,
   })
   if (profileError) throw profileError
-}
-
-async function toFunctionMessage(error: Error & { context?: unknown }): Promise<Error> {
-  const response = error.context
-  if (response instanceof Response) {
-    try {
-      const body = (await response.json()) as { error?: unknown }
-      if (typeof body.error === 'string') return new Error(body.error)
-    } catch {
-      // Fall through to the original function error.
-    }
-  }
-  return error
 }

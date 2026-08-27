@@ -6,13 +6,11 @@ import { useWorkspaces } from '../../hooks/useWorkspaces'
 
 interface AccountMenuProps {
   onOpenAccount: () => void
-  onOpenInvite: () => void
   placement?: 'down' | 'up'
 }
 
 export function AccountMenu({
   onOpenAccount,
-  onOpenInvite,
   placement = 'down',
 }: AccountMenuProps) {
   const navigate = useNavigate()
@@ -120,7 +118,6 @@ export function AccountMenu({
           <div className="border-t border-line pt-2">
             <MenuButton onClick={() => runAndClose(() => navigate('/profile'))}>View profile</MenuButton>
             <MenuButton onClick={() => runAndClose(() => { selectWorkspace(null); navigate('/') })}>Switch workspace</MenuButton>
-            {workspace.role === 'OWNER' ? <MenuButton onClick={() => runAndClose(onOpenInvite)}>Invite player</MenuButton> : null}
             <MenuButton onClick={() => runAndClose(onOpenAccount)}>Account settings</MenuButton>
             {mode === 'supabase' ? (
               <MenuButton disabled={isSigningOut} onClick={() => void handleSignOut()}>

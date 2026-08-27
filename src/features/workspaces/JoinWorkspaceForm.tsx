@@ -1,6 +1,5 @@
 import { useState, type FormEvent } from 'react'
 import { Button } from '../../components/Button'
-import { useAuth } from '../../hooks/useAuth'
 import { useWorkspaces } from '../../hooks/useWorkspaces'
 
 interface JoinWorkspaceFormProps {
@@ -9,7 +8,6 @@ interface JoinWorkspaceFormProps {
 }
 
 export function JoinWorkspaceForm({ onCancel, onJoined }: JoinWorkspaceFormProps) {
-  const { mode } = useAuth()
   const { joinWithInviteCode, isSaving } = useWorkspaces()
   const [code, setCode] = useState('')
   const [nickname, setNickname] = useState('')
@@ -38,13 +36,8 @@ export function JoinWorkspaceForm({ onCancel, onJoined }: JoinWorkspaceFormProps
       <div>
         <p className="section-label">Join workspace</p>
         <h2 className="mt-2 text-xl font-black text-ink">
-          {needsNickname ? `Choose your name in ${workspaceName}` : 'Enter your invite code'}
+          {needsNickname ? `Poker nickname · ${workspaceName}` : 'Invite code'}
         </h2>
-        <p className="mt-1 text-sm leading-6 text-ink-muted">
-          {needsNickname
-            ? 'This invite creates your new registered poker identity. Your nickname must be unique in this workspace.'
-            : 'Enter the Player invite code from your workspace owner.'}
-        </p>
       </div>
 
       <label className="block">
@@ -63,12 +56,7 @@ export function JoinWorkspaceForm({ onCancel, onJoined }: JoinWorkspaceFormProps
             setWorkspaceName('')
             setNickname('')
           }}
-          placeholder="000000"
-          aria-describedby="invite-code-help"
         />
-        <span id="invite-code-help" className="mt-2 block text-xs text-ink-muted">
-          Six digits · joins this workspace as PLAYER
-        </span>
       </label>
 
       {needsNickname ? (
@@ -82,15 +70,10 @@ export function JoinWorkspaceForm({ onCancel, onJoined }: JoinWorkspaceFormProps
             className="input"
             value={nickname}
             onChange={(event) => setNickname(event.target.value)}
-            placeholder="How players know you"
           />
-          <span className="mt-2 block text-xs leading-5 text-ink-muted">
-            If this name already belongs to an unregistered Player, ask the owner for an invite linked to that exact profile so its history stays intact.
-          </span>
         </label>
       ) : null}
 
-      {mode === 'local' ? <p className="text-xs leading-5 text-ink-muted">Local invite codes only work in this browser.</p> : null}
       {error ? <p role="alert" className="text-sm leading-6 text-red-300">{error}</p> : null}
 
       <div className={onCancel ? 'grid grid-cols-2 gap-2' : ''}>

@@ -62,7 +62,6 @@ export function AuthScreen() {
                 required
                 value={displayName}
                 onChange={(event) => setDisplayName(event.target.value)}
-                placeholder="Csanad"
               />
             </label>
           ) : null}
@@ -76,7 +75,6 @@ export function AuthScreen() {
               required
               value={email}
               onChange={(event) => setEmail(event.target.value)}
-              placeholder="you@example.com"
             />
           </label>
 
@@ -144,83 +142,6 @@ export function AuthScreen() {
             </button>
           ) : null}
         </div>
-      </section>
-    </main>
-  )
-}
-
-export function LegacyAnonymousUpgradeScreen() {
-  const { upgradeAnonymousOwnerAccount, signOut } = useAuth()
-  const [displayName, setDisplayName] = useState('')
-  const [email, setEmail] = useState('')
-  const [password, setPassword] = useState('')
-  const [confirmPassword, setConfirmPassword] = useState('')
-  const [isSaving, setIsSaving] = useState(false)
-  const [error, setError] = useState('')
-
-  async function submit(event: FormEvent) {
-    event.preventDefault()
-    setError('')
-    if (password !== confirmPassword) {
-      setError('Passwords do not match.')
-      return
-    }
-    setIsSaving(true)
-    try {
-      await upgradeAnonymousOwnerAccount(email, displayName, password)
-    } catch (caughtError) {
-      setError(readableAuthError(caughtError))
-    } finally {
-      setIsSaving(false)
-    }
-  }
-
-  return (
-    <main className="relative flex min-h-svh items-center justify-center overflow-hidden bg-app-bg px-4 py-[max(2rem,env(safe-area-inset-top,0px))] text-ink">
-      <BrandBackdrop />
-      <section className="glass-raised relative z-10 w-full max-w-md rounded-3xl p-5 sm:p-6">
-        <div className="mb-7 text-center">
-          <div className="mx-auto flex size-14 items-center justify-center rounded-2xl border border-white/10 bg-white/[0.06] text-xl font-black">
-            72
-          </div>
-          <p className="section-label mt-5">SevenTwo</p>
-          <h1 className="mt-2 text-3xl font-black tracking-tight text-ink">
-            Upgrade account
-          </h1>
-          <p className="mt-3 text-sm leading-6 text-ink-secondary">
-            This browser still has an old guest-owner workspace. Create a permanent account to keep ownership and continue.
-          </p>
-        </div>
-
-        <form onSubmit={submit} className="space-y-4">
-          <label className="block">
-            <span className="label">Username</span>
-            <input className="input" required minLength={2} maxLength={24} value={displayName} onChange={(event) => setDisplayName(event.target.value)} />
-          </label>
-          <label className="block">
-            <span className="label">Email</span>
-            <input className="input" required type="email" autoComplete="email" value={email} onChange={(event) => setEmail(event.target.value)} />
-          </label>
-          <label className="block">
-            <span className="label">Password</span>
-            <input className="input" required minLength={8} type="password" autoComplete="new-password" value={password} onChange={(event) => setPassword(event.target.value)} />
-          </label>
-          <label className="block">
-            <span className="label">Confirm password</span>
-            <input className="input" required minLength={8} type="password" autoComplete="new-password" value={confirmPassword} onChange={(event) => setConfirmPassword(event.target.value)} />
-          </label>
-          {error ? <p role="alert" className="text-sm leading-6 text-red-300">{error}</p> : null}
-          <Button type="submit" fullWidth disabled={isSaving}>
-            {isSaving ? 'Upgrading...' : 'Create permanent account'}
-          </Button>
-        </form>
-        <button
-          type="button"
-          onClick={() => void signOut()}
-          className="mt-4 min-h-11 w-full rounded-xl px-3 text-sm font-bold text-ink-muted transition hover:bg-white/[0.055] hover:text-ink focus-visible:outline-2 focus-visible:outline-ink"
-        >
-          Start fresh instead
-        </button>
       </section>
     </main>
   )

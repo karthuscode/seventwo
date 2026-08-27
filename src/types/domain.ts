@@ -99,12 +99,9 @@ export interface PlanVote {
   updatedAt: string
 }
 
-export interface PlayerInviteResult {
+export interface WorkspaceInviteResult {
   workspaceId: string
-  playerId: string | null
-  playerNickname: string | null
   inviteCode: string
-  expiresAt: string
 }
 
 export type JoinInviteResult =

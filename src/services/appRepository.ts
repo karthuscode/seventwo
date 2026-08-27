@@ -6,7 +6,7 @@ import type {
   Plan,
   PlanOption,
   PlanVote,
-  PlayerInviteResult,
+  WorkspaceInviteResult,
   JoinInviteResult,
   Session,
   SessionPlayer,
@@ -42,10 +42,8 @@ export interface AppRepository {
   readonly kind: 'local' | 'supabase'
   listWorkspaces(): Promise<Workspace[]>
   createWorkspace(name: string): Promise<WorkspaceAccessResult>
-  joinWorkspace(code: string): Promise<Workspace>
+  getWorkspaceInvite(workspaceId: string): Promise<WorkspaceInviteResult>
   rotateWorkspaceCode(workspaceId: string): Promise<string>
-  createPlayerInvite(workspaceId: string, playerId?: string): Promise<PlayerInviteResult>
-  redeemPlayerInvite(code: string): Promise<Workspace>
   joinWithInviteCode(code: string, nickname?: string): Promise<JoinInviteResult>
   load(workspaceId: string): Promise<AppData>
   addPlayer(player: Player): Promise<void>
@@ -68,6 +66,7 @@ export interface AppRepository {
     userId: string,
     role: Exclude<WorkspaceRole, 'OWNER'>,
   ): Promise<void>
+  linkPlayerToMember(workspaceId: string, playerId: string, userId: string): Promise<void>
   importData(workspaceId: string, data: AppData): Promise<void>
 }
 

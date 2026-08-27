@@ -55,13 +55,8 @@ export function WorkspaceLandingPage() {
           <div className="glass-raised mx-auto flex size-14 items-center justify-center rounded-2xl text-xl font-black text-ink">72</div>
           <p className="section-label mt-5">SevenTwo</p>
           <h1 className="mt-2 text-3xl font-black tracking-tight text-ink">
-            {workspaces.length === 0 ? `Welcome, ${welcomeName}` : `Welcome back, ${welcomeName}`}
+            {workspaces.length === 0 ? `Welcome, ${welcomeName}` : 'Your workspaces'}
           </h1>
-          <p className="mx-auto mt-2 max-w-md text-sm leading-6 text-ink-secondary">
-            {workspaces.length === 0
-              ? "You aren't in a poker group yet."
-              : 'Choose a private poker group to continue.'}
-          </p>
         </header>
 
         {mode === 'local' ? (
@@ -72,7 +67,6 @@ export function WorkspaceLandingPage() {
 
         {workspaces.length ? (
           <section className="mt-6 space-y-2">
-            <p className="section-label">Your workspaces</p>
             {workspaces.map((workspace) => (
               <button
                 key={workspace.id}
@@ -88,15 +82,11 @@ export function WorkspaceLandingPage() {
               </button>
             ))}
           </section>
-        ) : (
-          <p className="mt-7 py-3 text-center text-sm text-ink-muted">
-            Join with a Player invite, or create a new workspace as its owner.
-          </p>
-        )}
+        ) : null}
 
         <div className="mt-6 grid gap-3 min-[360px]:grid-cols-2">
-          <Button onClick={() => { setAction('join'); clearError(); }}>Join workspace</Button>
-          <Button variant="secondary" onClick={() => { setAction('create'); clearError(); }}>Create workspace</Button>
+          <Button onClick={() => { setAction('create'); clearError(); }}>Create workspace</Button>
+          <Button variant="secondary" onClick={() => { setAction('join'); clearError(); }}>Join workspace</Button>
         </div>
         {mode === 'supabase' ? (
           <button type="button" disabled={isSigningOut} onClick={() => void handleSignOut()} className="mt-3 min-h-11 w-full text-sm font-bold text-ink-secondary hover:text-ink disabled:opacity-50">
@@ -106,13 +96,10 @@ export function WorkspaceLandingPage() {
 
         {action === 'create' ? (
           <form onSubmit={handleCreate} className="glass-surface mt-4 space-y-4 rounded-2xl p-5">
-            <div>
-              <h2 className="font-bold text-ink">Create workspace</h2>
-              <p className="mt-1 text-xs text-ink-muted">You become its owner.</p>
-            </div>
+            <h2 className="font-bold text-ink">Create workspace</h2>
             <label className="block">
               <span className="label">Workspace name</span>
-              <input autoFocus required maxLength={80} className="input" value={name} onChange={(event) => setName(event.target.value)} placeholder="Friday Poker" />
+              <input autoFocus required maxLength={80} className="input" value={name} onChange={(event) => setName(event.target.value)} />
             </label>
             {formError || error ? <p role="alert" className="text-sm text-red-300">{formError || error}</p> : null}
             <div className="grid grid-cols-2 gap-2">

@@ -83,8 +83,8 @@ export function AppLayout() {
             {repositoryKind === 'supabase' ? 'Shared workspace' : 'Local demo'}
           </p>
           <WorkspaceMenu triggerClassName="mt-2 min-h-11 w-full rounded-xl text-left text-sm font-semibold text-ink-secondary transition hover:bg-white/[0.055] hover:text-ink focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ink" />
-          {workspace.role === 'OWNER' ? <button type="button" onClick={() => setShowInvite(true)} className="mb-2 min-h-11 w-full rounded-xl text-left text-sm font-semibold text-ink-secondary transition hover:bg-white/[0.055] hover:text-ink">Invite player</button> : null}
-          <AccountMenu placement="up" onOpenAccount={() => setShowAccount(true)} onOpenInvite={() => setShowInvite(true)} />
+          {workspace.role === 'OWNER' ? <button type="button" onClick={() => setShowInvite(true)} className="mb-2 min-h-11 w-full rounded-xl text-left text-sm font-semibold text-ink-secondary transition hover:bg-white/[0.055] hover:text-ink">Workspace invite</button> : null}
+          <AccountMenu placement="up" onOpenAccount={() => setShowAccount(true)} />
         </div>
       </aside>
 
@@ -99,7 +99,7 @@ export function AppLayout() {
               </div>
             </div>
             <div className="ml-2 shrink-0">
-              <AccountMenu onOpenAccount={() => setShowAccount(true)} onOpenInvite={() => setShowInvite(true)} />
+              <AccountMenu onOpenAccount={() => setShowAccount(true)} />
             </div>
           </div>
           {joinNotice ? (

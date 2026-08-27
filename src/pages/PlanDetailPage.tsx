@@ -6,6 +6,7 @@ import { PageHeader } from '../components/PageHeader'
 import { Modal } from '../components/Modal'
 import { useAppData } from '../hooks/useAppData'
 import { useAuth } from '../hooks/useAuth'
+import { LOCAL_USER_ID } from '../services/localStorageRepository'
 import type { PaymentMethod, PaymentStatus, PlanVoteResponse } from '../types/domain'
 import { defaultPlanSessionPlayerIds, rankPlanOptions } from '../utils/planning'
 
@@ -19,12 +20,15 @@ export function PlanDetailPage() {
   const { planId } = useParams()
   const navigate = useNavigate()
   const app = useAppData()
-  const { user } = useAuth()
+  const { user, mode } = useAuth()
   const plan = app.plans.find((item) => item.id === planId)
   const [isSaving, setIsSaving] = useState(false)
   const [error, setError] = useState('')
   const [showCreate, setShowCreate] = useState(false)
-  const [hostUserId, setHostUserId] = useState(plan?.hostUserId ?? user?.id ?? '')
+  const currentUserId = user?.id ?? (mode === 'local' ? LOCAL_USER_ID : '')
+  const [hostUserId, setHostUserId] = useState(plan?.hostUserId ?? currentUserId)
+  const [expandedBreakdowns, setExpandedBreakdowns] = useState<Set<string>>(new Set())
+  const [showUnregisteredManagement, setShowUnregisteredManagement] = useState(false)
   const role = app.workspace.role
   const canManage = role === 'OWNER' || role === 'HOST'
 
@@ -37,8 +41,7 @@ export function PlanDetailPage() {
   if (!plan) return <EmptyState title="Plan not found" description="This plan is unavailable or belongs to another workspace." action={<Link to="/">Dashboard</Link>} />
   const selectedPlan = plan
 
-  const linkedPlayer = app.players.find((player) => player.userId === user?.id)
-  const voters = canManage ? app.players.filter((player) => !player.archivedAt) : linkedPlayer ? [linkedPlayer] : []
+  const linkedPlayer = app.players.find((player) => player.userId === currentUserId)
   const confirmed = options.find((option) => option.id === selectedPlan.confirmedOptionId)
   const eligibleHosts = app.workspaceMembers.filter(
     (member) => member.role === 'OWNER' || member.role === 'HOST',
@@ -46,6 +49,16 @@ export function PlanDetailPage() {
   const planHostName = app.workspaceMembers.find(
     (member) => member.userId === selectedPlan.hostUserId,
   )?.displayName
+  const unregisteredPlayers = app.players.filter((player) => !player.archivedAt && !player.userId)
+
+  function toggleBreakdown(optionId: string) {
+    setExpandedBreakdowns((current) => {
+      const next = new Set(current)
+      if (next.has(optionId)) next.delete(optionId)
+      else next.add(optionId)
+      return next
+    })
+  }
 
   async function saveVote(optionId: string, playerId: string, response: PlanVoteResponse) {
     setIsSaving(true); setError('')
@@ -62,33 +75,154 @@ export function PlanDetailPage() {
     finally { setIsSaving(false) }
   }
 
+  function hostDisplayName(member: typeof eligibleHosts[number]): string {
+    if (member.displayName) return member.displayName
+    if (member.userId === currentUserId) return 'You'
+    return member.role === 'OWNER' ? 'Owner' : 'Host'
+  }
+
   return (
     <div className="section-enter space-y-8">
       <Link to="/" className="text-sm font-bold text-ink-secondary hover:text-ink">← Dashboard</Link>
       <PageHeader eyebrow={plan.status.replace('_', ' ')} title={plan.title} description={confirmed ? `Confirmed · ${formatPlanTime(confirmed.startsAt)}${planHostName ? ` · Hosted by ${planHostName}` : ''}` : 'Choose every time that works for you.'} action={canManage && plan.status === 'CONFIRMED' ? <Button onClick={() => setShowCreate(true)}>Create session</Button> : undefined} />
-      {canManage && plan.status === 'VOTING' ? <label className="block max-w-sm"><span className="label">Primary host</span><select className="input" value={hostUserId} onChange={(event) => setHostUserId(event.target.value)}>{eligibleHosts.length ? eligibleHosts.map((member) => <option key={member.userId} value={member.userId}>{member.displayName ?? (member.userId === user?.id ? 'You' : 'Guest host')} · {member.role}</option>) : <option value={hostUserId}>Current local host</option>}</select></label> : null}
+      {canManage && plan.status === 'VOTING' ? <label className="block max-w-sm"><span className="label">Primary host</span><select className="input" value={hostUserId} onChange={(event) => setHostUserId(event.target.value)}>{eligibleHosts.length ? eligibleHosts.map((member) => <option key={member.userId} value={member.userId}>{hostDisplayName(member)} · {member.role}</option>) : <option value={hostUserId}>Current local host</option>}</select></label> : null}
       <section className="space-y-4">
         {summaries.map((summary, index) => {
           const viability = summary.viability
           const isConfirmed = plan.confirmedOptionId === summary.option.id
+          const isBreakdownExpanded = expandedBreakdowns.has(summary.option.id)
+
+          // Group voters by response for breakdown
+          const allActivePlayers = app.players.filter((player) => !player.archivedAt)
+          const responseGroups = {
+            available: [] as string[],
+            maybe: [] as string[],
+            cant: [] as string[],
+            noResponse: [] as string[],
+          }
+          for (const player of allActivePlayers) {
+            const vote = app.planVotes.find((item) => item.optionId === summary.option.id && item.playerId === player.id)
+            if (!vote) responseGroups.noResponse.push(player.nickname)
+            else if (vote.response === 'AVAILABLE') responseGroups.available.push(player.nickname)
+            else if (vote.response === 'MAYBE') responseGroups.maybe.push(player.nickname)
+            else responseGroups.cant.push(player.nickname)
+          }
+
           return (
             <article key={summary.option.id} className={`glass-surface rounded-2xl p-5 ${isConfirmed ? 'ambient-positive' : ''}`}>
+              {/* Compact header with time, viability, and counts */}
               <div className="flex flex-wrap items-start justify-between gap-3">
-                <div><p className="text-lg font-black text-ink">{formatPlanTime(summary.option.startsAt)}</p><p className={`mt-1 text-xs font-bold ${viabilityTone(viability)}`}>{index === 0 && !confirmed ? 'BEST OPTION · ' : ''}{viability.replace('_', ' ')}</p></div>
-                <p className="text-sm tabular-nums text-ink-secondary"><strong className="text-ink">{summary.available}</strong> available · {summary.maybe} maybe · {summary.unavailable} can't</p>
+                <div>
+                  <p className="text-lg font-black text-ink">{formatPlanTime(summary.option.startsAt)}</p>
+                  <p className={`mt-1 text-xs font-bold ${viabilityTone(viability)}`}>{index === 0 && !confirmed ? 'BEST OPTION · ' : ''}{viability.replace('_', ' ')}</p>
+                </div>
+                <p className="text-sm tabular-nums text-ink-secondary"><strong className="text-ink">{summary.available}</strong> going · {summary.maybe} maybe · {summary.unavailable} can't</p>
               </div>
-              <div className="mt-5 divide-y divide-line/60">
-                {voters.map((player) => {
-                  const vote = app.planVotes.find((item) => item.optionId === summary.option.id && item.playerId === player.id)
-                  return <div key={player.id} className="flex flex-col gap-2 py-3 sm:flex-row sm:items-center sm:justify-between"><div><p className="text-sm font-bold text-ink">{player.nickname}</p><p className="text-[11px] text-ink-muted">{player.userId ? 'Registered' : 'Guest · response recorded by Host'}</p></div><div className="flex gap-1 rounded-xl bg-black/20 p-1">{RESPONSES.map((response) => <button key={response.value} type="button" disabled={isSaving || plan.status !== 'VOTING'} onClick={() => void saveVote(summary.option.id, player.id, response.value)} className={`min-h-10 rounded-lg px-2.5 text-xs font-bold transition ${vote?.response === response.value ? 'bg-white/12 text-ink' : 'text-ink-muted hover:text-ink'}`}>{response.label}</button>)}</div></div>
-                })}
+
+              {/* Own RSVP controls (for linked player only) */}
+              {linkedPlayer && plan.status === 'VOTING' ? (() => {
+                const ownVote = app.planVotes.find((item) => item.optionId === summary.option.id && item.playerId === linkedPlayer.id)
+                return (
+                  <div className="mt-4 flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
+                    <p className="text-sm font-bold text-ink">Your response</p>
+                    <div className="flex gap-1 rounded-xl bg-black/20 p-1">
+                      {RESPONSES.map((response) => <button key={response.value} type="button" disabled={isSaving} onClick={() => void saveVote(summary.option.id, linkedPlayer.id, response.value)} className={`min-h-10 rounded-lg px-2.5 text-xs font-bold transition ${ownVote?.response === response.value ? 'bg-white/12 text-ink' : 'text-ink-muted hover:text-ink'}`}>{response.label}</button>)}
+                    </div>
+                  </div>
+                )
+              })() : null}
+
+              {/* View breakdown toggle */}
+              <button
+                type="button"
+                className="mt-4 min-h-11 rounded-lg text-sm font-bold text-ink-secondary transition hover:text-ink focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ink active:text-ink"
+                aria-expanded={isBreakdownExpanded}
+                onClick={() => toggleBreakdown(summary.option.id)}
+              >
+                {isBreakdownExpanded ? 'Hide breakdown' : 'View breakdown'}
+                <span aria-hidden="true" className={`ml-2 inline-block transition-transform ${isBreakdownExpanded ? 'rotate-180' : ''}`}>↓</span>
+              </button>
+
+              {/* Collapsible breakdown */}
+              <div className={`grid transition-[grid-template-rows,opacity] duration-200 ease-out ${isBreakdownExpanded ? 'grid-rows-[1fr] opacity-100' : 'grid-rows-[0fr] opacity-0'}`} aria-hidden={!isBreakdownExpanded}>
+                <div className="overflow-hidden">
+                  <div className="space-y-4 border-t border-line/80 pt-4">
+                    {responseGroups.available.length ? (
+                      <div>
+                        <p className="text-xs font-black uppercase tracking-[0.14em] text-positive">Going · {responseGroups.available.length}</p>
+                        <div className="mt-2 space-y-1">{responseGroups.available.map((name) => <p key={name} className="text-sm text-ink">{name}</p>)}</div>
+                      </div>
+                    ) : null}
+                    {responseGroups.maybe.length ? (
+                      <div>
+                        <p className="text-xs font-black uppercase tracking-[0.14em] text-warning">Maybe · {responseGroups.maybe.length}</p>
+                        <div className="mt-2 space-y-1">{responseGroups.maybe.map((name) => <p key={name} className="text-sm text-ink">{name}</p>)}</div>
+                      </div>
+                    ) : null}
+                    {responseGroups.cant.length ? (
+                      <div>
+                        <p className="text-xs font-black uppercase tracking-[0.14em] text-negative">Can't · {responseGroups.cant.length}</p>
+                        <div className="mt-2 space-y-1">{responseGroups.cant.map((name) => <p key={name} className="text-sm text-ink">{name}</p>)}</div>
+                      </div>
+                    ) : null}
+                    {responseGroups.noResponse.length ? (
+                      <div>
+                        <p className="text-xs font-black uppercase tracking-[0.14em] text-ink-muted">No response · {responseGroups.noResponse.length}</p>
+                        <div className="mt-2 space-y-1">{responseGroups.noResponse.map((name) => <p key={name} className="text-sm text-ink-muted">{name}</p>)}</div>
+                      </div>
+                    ) : null}
+                  </div>
+                </div>
               </div>
+
               {canManage && plan.status === 'VOTING' ? <Button variant={index === 0 ? 'primary' : 'secondary'} className="mt-4" disabled={isSaving} onClick={() => void confirm(summary.option.id)}>Confirm this time</Button> : null}
             </article>
           )
         })}
       </section>
-      {!voters.length ? <p className="text-sm text-warning">Redeem a Player invite to link your poker identity before voting.</p> : null}
+
+      {/* Unregistered response management for OWNER/HOST */}
+      {canManage && unregisteredPlayers.length > 0 && plan.status === 'VOTING' ? (
+        <section>
+          <button
+            type="button"
+            className="min-h-11 rounded-lg text-sm font-bold text-ink-secondary transition hover:text-ink focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ink active:text-ink"
+            aria-expanded={showUnregisteredManagement}
+            onClick={() => setShowUnregisteredManagement((current) => !current)}
+          >
+            {showUnregisteredManagement ? 'Hide unregistered responses' : 'Manage unregistered responses'}
+            <span aria-hidden="true" className={`ml-2 inline-block transition-transform ${showUnregisteredManagement ? 'rotate-180' : ''}`}>↓</span>
+          </button>
+
+          <div className={`grid transition-[grid-template-rows,opacity] duration-200 ease-out ${showUnregisteredManagement ? 'grid-rows-[1fr] opacity-100' : 'grid-rows-[0fr] opacity-0'}`} aria-hidden={!showUnregisteredManagement}>
+            <div className="overflow-hidden">
+              {summaries.map((summary) => (
+                <div key={summary.option.id} className="glass-surface mt-3 rounded-2xl p-4">
+                  <p className="mb-3 text-sm font-bold text-ink">{formatPlanTime(summary.option.startsAt)}</p>
+                  <div className="divide-y divide-line/60">
+                    {unregisteredPlayers.map((player) => {
+                      const vote = app.planVotes.find((item) => item.optionId === summary.option.id && item.playerId === player.id)
+                      return (
+                        <div key={player.id} className="flex flex-col gap-2 py-3 sm:flex-row sm:items-center sm:justify-between">
+                          <div>
+                            <p className="text-sm font-bold text-ink">{player.nickname}</p>
+                            <p className="text-[11px] text-ink-muted">Unregistered</p>
+                          </div>
+                          <div className="flex gap-1 rounded-xl bg-black/20 p-1">
+                            {RESPONSES.map((response) => <button key={response.value} type="button" disabled={isSaving} onClick={() => void saveVote(summary.option.id, player.id, response.value)} className={`min-h-10 rounded-lg px-2.5 text-xs font-bold transition ${vote?.response === response.value ? 'bg-white/12 text-ink' : 'text-ink-muted hover:text-ink'}`}>{response.label}</button>)}
+                          </div>
+                        </div>
+                      )
+                    })}
+                  </div>
+                </div>
+              ))}
+            </div>
+          </div>
+        </section>
+      ) : null}
+
+      {!linkedPlayer ? <p className="text-sm text-warning">No player profile linked in this workspace.</p> : null}
       {error ? <p role="alert" className="text-sm text-red-300">{error}</p> : null}
       {showCreate && confirmed ? <CreateFromPlan planId={plan.id} startsAt={confirmed.startsAt} onClose={() => setShowCreate(false)} onCreated={(sessionId) => navigate(`/sessions/${sessionId}/active`)} /> : null}
     </div>

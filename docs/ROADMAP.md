@@ -33,7 +33,7 @@
 - Lightweight failed-join throttling
 - Digest-hiding database privileges and preserved membership-based RLS
 - Multi-workspace local demo simulation
-- Superseded in the normal product flow by Phase 4 account-first Player invites; legacy code support can remain temporarily for migration.
+- Superseded in the normal product flow by Phase 4 registered accounts and PLAYER-only workspace invites; legacy anonymous rows can remain temporarily for migration.
 
 ## Phase 3 — Cash-out and settlement ✅
 
@@ -44,16 +44,18 @@
 - Surface discrepancies before finishing a session
 - Preserve complete cash-out, offset, payout, and settlement inputs for historical summaries
 
-## Phase 4 — Accounts, roles, invites, and planning (local implementation complete)
+## Phase 4 — Accounts, roles, invites, and planning (release candidate)
 
 - Email/password account registration and login with display names
 - Account-first Auth screen and Workspace Gateway
 - OWNER / HOST / PLAYER permissions and linked canonical Player identities
-- Player-only invite-code onboarding; OWNER promotes PLAYER to HOST later
-- Secure Player invites for exact historical-profile linking or new registered-Player creation
-- Legacy anonymous OWNER upgrade path that preserves workspace IDs and historical data
+- One reusable, owner-managed workspace invite code that always grants PLAYER
+- Automatic registered Player identity for workspace creators and joiners
+- Owner-controlled linking of historical unregistered Players to eligible registered members
+- OWNER-only PLAYER ↔ HOST role management from the Players roster
+- Isolated legacy anonymous OWNER migration path that preserves workspace IDs and historical data
 - Visible account identity, active-workspace role, role-aware onboarding, and profile states
-- Concrete timeslot Plans, registered self-voting, and Host guest-proxy voting
+- Concrete timeslot Plans, registered self-voting, and operator proxy voting for unregistered Players
 - Attendance viability, deterministic best option, confirmation, primary host, and Plan → Session conversion
 - RLS policies that prevent PLAYER financial administration and cross-workspace access
 

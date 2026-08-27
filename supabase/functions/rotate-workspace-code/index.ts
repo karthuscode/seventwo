@@ -1,6 +1,6 @@
 import { corsHeaders, handleError, jsonResponse, readJson, RequestError } from '../_shared/http.ts'
 import { requireFunctionContext } from '../_shared/supabase.ts'
-import { generateUniqueWorkspaceCode } from '../_shared/workspace-code.ts'
+import { allocateWorkspaceInvite } from '../_shared/workspace-code.ts'
 
 Deno.serve(async (request) => {
   if (request.method === 'OPTIONS') {
@@ -11,7 +11,7 @@ Deno.serve(async (request) => {
   }
 
   try {
-    const { admin, user } = await requireFunctionContext(request)
+    const { admin, user } = await requireFunctionContext(request, { registeredOnly: true })
     const body = await readJson(request)
     const workspaceId =
       typeof body.workspaceId === 'string' ? body.workspaceId : ''
@@ -27,13 +27,13 @@ Deno.serve(async (request) => {
       .maybeSingle()
     if (membershipError) throw membershipError
     if (membership?.role !== 'OWNER') {
-      throw new RequestError(403, 'Only the workspace owner can regenerate its code.')
+      throw new RequestError(403, 'Only the workspace owner can rotate its invite code.')
     }
 
-    const { accessCode, digest } = await generateUniqueWorkspaceCode(admin)
+    const { accessCode, digest, seed } = await allocateWorkspaceInvite(admin)
     const { data: updatedWorkspace, error: updateError } = await admin
       .from('workspaces')
-      .update({ access_code_digest: digest })
+      .update({ access_code_digest: digest, invite_code_seed: seed })
       .eq('id', workspaceId)
       .select('id')
       .single()
