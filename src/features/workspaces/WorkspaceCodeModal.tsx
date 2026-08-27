@@ -18,9 +18,9 @@ export function WorkspaceCodeModal() {
   return (
     <Modal title="Workspace access code" onClose={clearRevealedCode}>
       <div className="text-center">
-        <p className="text-sm text-slate-400">{revealedCode.workspaceName}</p>
-        <p className="my-7 text-4xl font-black tracking-[0.18em] text-white sm:text-5xl">{formattedCode}</p>
-        <p className="text-sm leading-6 text-slate-400">
+        <p className="text-sm text-ink-secondary">{revealedCode.workspaceName}</p>
+        <p className="my-7 text-4xl font-black tracking-[0.18em] text-ink sm:text-5xl">{formattedCode}</p>
+        <p className="text-sm leading-6 text-ink-secondary">
           Share this code with trusted hosts. It is only shown when created or regenerated.
         </p>
         <div className="mt-6 grid grid-cols-2 gap-3">

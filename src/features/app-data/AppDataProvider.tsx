@@ -32,6 +32,7 @@ import {
   toMinorUnits,
 } from '../../utils/calculations'
 import { isStandardPaymentMethod } from '../../utils/paymentMethods'
+import { BrandBackdrop } from '../../components/BrandBackdrop'
 
 export function AppDataProvider({ children }: PropsWithChildren) {
   const { repository, selectedWorkspace: workspace } = useWorkspaces()
@@ -595,10 +596,11 @@ function ensurePrimaryPaymentMethod(paymentMethod: Transaction['paymentMethod'])
 
 function DataLoadingScreen() {
   return (
-    <main className="flex min-h-svh items-center justify-center bg-slate-950 text-slate-100">
-      <div className="text-center">
-        <div className="mx-auto size-8 animate-pulse rounded-full bg-emerald-400" />
-        <p className="mt-4 text-sm text-slate-400">Loading workspace…</p>
+    <main className="relative flex min-h-svh items-center justify-center bg-app-bg text-ink">
+      <BrandBackdrop />
+      <div className="relative z-10 text-center">
+        <div className="mx-auto size-2 animate-pulse rounded-full bg-ink-secondary" />
+        <p className="mt-4 text-sm text-ink-muted">Loading workspace…</p>
       </div>
     </main>
   )

@@ -203,9 +203,9 @@ export function CashOutModal({
     >
       <form onSubmit={handleSubmit} className="space-y-6">
         {confirmingCorrection ? (
-          <div className="rounded-xl bg-amber-400/8 px-4 py-3">
+          <div className="glass-warning rounded-xl px-4 py-3">
             <p className="font-bold text-amber-200">Confirm settlement correction</p>
-            <p className="mt-1 text-sm leading-6 text-slate-300">
+            <p className="mt-1 text-sm leading-6 text-ink-secondary">
               This replaces the saved chips, pending offsets, and payout split.
             </p>
           </div>
@@ -229,10 +229,10 @@ export function CashOutModal({
             />
           </label>
           <div id="cash-out-chip-help" className="mt-2 flex flex-wrap justify-between gap-2 text-xs">
-            <span className="font-semibold text-slate-300">
+            <span className="font-semibold text-ink-secondary">
               {maximumCashOutChips} chips available
             </span>
-            <span className="text-slate-500">
+            <span className="text-ink-muted">
               {session.chipsPerBuyIn} chips = {formatMoney(session.buyInAmount)}
             </span>
           </div>
@@ -247,7 +247,7 @@ export function CashOutModal({
           Bust out — 0 chips
         </Button>
 
-        <dl className="space-y-3 border-y border-slate-800/80 py-5">
+        <dl className="space-y-3 border-y border-line/80 py-5">
           <MoneyRow label="Gross cash-out" value={preview.grossCashOut} />
           <MoneyRow label="Poker result" value={preview.pokerResult} signed prominent />
           {preview.pendingBeforeOffsets ? (
@@ -272,7 +272,7 @@ export function CashOutModal({
             <div className="space-y-3">
               {STANDARD_PAYMENT_METHODS.map((method) => (
                 <label key={method} className="grid grid-cols-[1fr_8rem] items-center gap-3">
-                  <span className="text-sm font-bold text-slate-300">
+                  <span className="text-sm font-bold text-ink-secondary">
                     {method === 'CASH' ? 'Cash' : 'Card'}
                   </span>
                   <input
@@ -288,8 +288,8 @@ export function CashOutModal({
               ))}
               {hasLegacyOtherPayout ? (
                 <div className="grid grid-cols-[1fr_8rem] items-center gap-3 text-sm">
-                  <span className="text-slate-500">Other (legacy)</span>
-                  <span className="text-right font-bold tabular-nums text-slate-400">
+                  <span className="text-ink-muted">Other (legacy)</span>
+                  <span className="text-right font-bold tabular-nums text-ink-secondary">
                     {formatMoney(payoutAmounts.OTHER)}
                   </span>
                 </div>
@@ -312,14 +312,14 @@ export function CashOutModal({
               </Button>
             </div>
             <div className="mt-4 flex justify-between text-sm font-bold">
-              <span className="text-slate-400">Remaining</span>
-              <span className={toMinorUnits(remaining) === 0 ? 'text-emerald-300' : 'text-red-300'}>
+              <span className="text-ink-secondary">Remaining</span>
+              <span className={toMinorUnits(remaining) === 0 ? 'text-ink' : 'text-negative'}>
                 {formatMoney(remaining)}
               </span>
             </div>
           </fieldset>
         ) : (
-          <p className="rounded-xl bg-slate-950/60 px-4 py-3 text-sm text-slate-400">
+          <p className="glass-surface rounded-xl px-4 py-3 text-sm text-ink-secondary">
             No payout is required. The cash-out is fully offset or has zero value.
           </p>
         )}
@@ -329,6 +329,7 @@ export function CashOutModal({
         ) : null}
         <Button
           type="submit"
+          variant="success"
           fullWidth
           disabled={isSaving || Boolean(chipError) || toMinorUnits(remaining) !== 0}
         >
@@ -370,16 +371,14 @@ function MoneyRow({
   const valueColor = warning
     ? 'text-amber-300'
     : signed && value < 0
-      ? 'text-red-300'
+      ? 'text-negative'
       : signed && value > 0
-        ? 'text-emerald-300'
-        : prominent
-          ? 'text-emerald-300'
-          : 'text-white'
+        ? 'text-positive'
+        : 'text-ink'
 
   return (
     <div className="flex items-baseline justify-between gap-4">
-      <dt className={prominent ? 'font-bold text-white' : 'text-sm text-slate-400'}>
+      <dt className={prominent ? 'font-bold text-ink' : 'text-sm text-ink-secondary'}>
         {label}
       </dt>
       <dd className={`${prominent ? 'text-xl font-black' : 'font-bold'} tabular-nums ${valueColor}`}>

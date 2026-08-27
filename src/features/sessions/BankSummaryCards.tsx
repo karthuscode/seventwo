@@ -36,35 +36,39 @@ export function BankSummaryCards({
   ].some((amount) => amount !== 0)
 
   return (
-    <section className="rounded-2xl bg-slate-900 px-5 py-5 sm:px-6">
+    <section className="glass-surface rounded-2xl px-5 py-5 sm:px-6">
       <div className="flex items-center justify-between gap-4">
-        <h2 className="text-xs font-black uppercase tracking-[0.2em] text-slate-500">
+        <h2 className="section-label">
           Bank
         </h2>
         {summary.pendingOffset ? (
-          <p className="text-xs text-slate-500">
+          <p className="text-xs text-ink-muted">
             {formatMoney(summary.pendingOffset)} offset
           </p>
         ) : null}
       </div>
 
       <dl
-        className={`mt-5 grid gap-x-5 gap-y-4 ${summary.pending ? 'grid-cols-3' : 'grid-cols-2'}`}
+        className="mt-5 grid grid-cols-2 gap-x-6 gap-y-5"
       >
         <PrimaryValue label="Buy-ins" value={summary.committed} />
         {summary.pending ? (
           <PrimaryValue
             label="Pending"
             value={summary.pending}
-            className="text-amber-300"
+            className="text-warning"
           />
         ) : null}
-        <PrimaryValue label="Balance" value={balance} />
+        <PrimaryValue
+          label="Balance"
+          value={balance}
+          wrapperClassName={summary.pending ? 'col-span-2' : ''}
+        />
       </dl>
 
       <button
         type="button"
-        className="mt-5 min-h-11 rounded-lg text-sm font-bold text-slate-400 transition hover:text-white focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-emerald-400 active:text-emerald-300"
+        className="mt-4 min-h-11 rounded-lg text-sm font-bold text-ink-secondary transition hover:text-ink focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ink active:text-ink"
         aria-expanded={isExpanded}
         onClick={() => setIsExpanded((current) => !current)}
       >
@@ -84,7 +88,7 @@ export function BankSummaryCards({
         aria-hidden={!isExpanded}
       >
         <div className="overflow-hidden">
-          <div className="grid gap-7 border-t border-slate-800/80 pt-5 sm:grid-cols-3">
+          <div className="grid grid-cols-1 gap-6 border-t border-line/80 pt-5">
             <MethodList
               title="Received"
               amounts={summary.receivedByMethod}
@@ -102,12 +106,11 @@ export function BankSummaryCards({
             />
           </div>
           {summary.pending ? (
-            <div className="mt-5 border-t border-slate-800/80 pt-5">
+            <div className="mt-5 border-t border-line/80 pt-5">
               <MethodList
                 title="Pending"
                 amounts={summary.pendingByMethod}
                 hasLegacyOther={hasLegacyOther}
-                horizontal
               />
             </div>
           ) : null}
@@ -120,18 +123,20 @@ export function BankSummaryCards({
 function PrimaryValue({
   label,
   value,
-  className = 'text-white',
+  className = 'text-ink',
+  wrapperClassName = '',
 }: {
   label: string
   value: number
   className?: string
+  wrapperClassName?: string
 }) {
   return (
-    <div>
-      <dt className="text-[11px] font-bold uppercase tracking-wider text-slate-500">
+    <div className={wrapperClassName}>
+      <dt className="text-[10px] font-black uppercase tracking-[0.14em] text-ink-muted">
         {label}
       </dt>
-      <dd className={`mt-1 text-xl font-black tabular-nums sm:text-2xl ${className}`}>
+      <dd className={`mt-1 text-[clamp(1.25rem,6vw,1.75rem)] font-black leading-tight tracking-tight tabular-nums ${className}`}>
         {formatMoney(value)}
       </dd>
     </div>
@@ -142,29 +147,27 @@ function MethodList({
   title,
   amounts,
   hasLegacyOther,
-  horizontal = false,
 }: {
   title: string
   amounts: MoneyByMethod
   hasLegacyOther: boolean
-  horizontal?: boolean
 }) {
   const methods = hasLegacyOther
     ? (['CASH', 'CARD', 'OTHER'] as const)
     : (['CASH', 'CARD'] as const)
 
   return (
-    <div>
-      <h3 className="text-[11px] font-black uppercase tracking-[0.16em] text-slate-500">
+    <div className="min-w-0">
+      <h3 className="text-[11px] font-black uppercase tracking-[0.16em] text-ink-muted">
         {title}
       </h3>
-      <dl className={`mt-3 ${horizontal ? 'flex flex-wrap gap-x-7 gap-y-2' : 'space-y-2'}`}>
+      <dl className="mt-3 space-y-2">
         {methods.map((method) => (
-          <div key={method} className="flex min-w-32 justify-between gap-5 text-sm">
-            <dt className={method === 'OTHER' ? 'text-slate-500' : 'text-slate-300'}>
+          <div key={method} className="flex min-w-0 justify-between gap-5 text-sm">
+            <dt className={method === 'OTHER' ? 'text-ink-muted' : 'text-ink-secondary'}>
               {method === 'OTHER' ? 'Other (legacy)' : titleCase(method)}
             </dt>
-            <dd className="font-bold tabular-nums text-white">
+            <dd className="font-bold tabular-nums text-ink">
               {formatMoney(amounts[method])}
             </dd>
           </div>

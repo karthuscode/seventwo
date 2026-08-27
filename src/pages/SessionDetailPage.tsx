@@ -36,7 +36,7 @@ export function SessionDetailPage() {
       <EmptyState
         title="Session not found"
         description="This session does not exist in the current data store."
-        action={<Link to="/history" className="text-emerald-300">Back to history</Link>}
+        action={<Link to="/history" className="font-bold text-ink-secondary">Back to history</Link>}
       />
     )
   }
@@ -64,8 +64,8 @@ export function SessionDetailPage() {
   )
 
   return (
-    <div className="space-y-7">
-      <Link to="/history" className="text-sm font-bold text-slate-400 hover:text-white">← Session history</Link>
+    <div className="section-enter space-y-9">
+      <Link to="/history" className="text-sm font-bold text-ink-secondary transition hover:text-ink">← Session history</Link>
       <PageHeader
         eyebrow="Session record"
         title={session.name}
@@ -78,19 +78,24 @@ export function SessionDetailPage() {
         }
       />
 
-      <BankSummaryCards
-        transactions={sessionTransactions}
-        payoutAllocations={sessionPayouts}
-        paymentOffsets={sessionOffsets}
-      />
-
-      <SessionSettlementSummary
-        players={players}
-        sessionPlayers={sessionParticipants}
-        transactions={sessionTransactions}
-        payoutAllocations={sessionPayouts}
-        paymentOffsets={sessionOffsets}
-      />
+      <div className="grid gap-8 lg:grid-cols-[minmax(0,1.35fr)_minmax(19rem,0.75fr)] lg:items-start">
+        <div className="lg:order-2 lg:sticky lg:top-8">
+          <BankSummaryCards
+            transactions={sessionTransactions}
+            payoutAllocations={sessionPayouts}
+            paymentOffsets={sessionOffsets}
+          />
+        </div>
+        <div className="lg:order-1">
+          <SessionSettlementSummary
+            players={players}
+            sessionPlayers={sessionParticipants}
+            transactions={sessionTransactions}
+            payoutAllocations={sessionPayouts}
+            paymentOffsets={sessionOffsets}
+          />
+        </div>
+      </div>
 
       {incompletePlayers.length ? (
         <p className="rounded-xl border border-amber-400/20 bg-amber-400/5 p-4 text-sm text-amber-200">
@@ -99,7 +104,7 @@ export function SessionDetailPage() {
       ) : null}
 
       <section>
-        <h2 className="mb-3 text-sm font-bold uppercase tracking-wider text-slate-500">Players</h2>
+        <h2 className="section-label mb-3">Players</h2>
         <div className="space-y-3">
           {participants.map(({ player, participation }) => {
             const playerTransactions = sessionTransactions.filter(
@@ -119,23 +124,40 @@ export function SessionDetailPage() {
             )
             const completed = participation.status === 'CASHED_OUT'
             return (
-              <article key={player.id} className="rounded-2xl border border-slate-800 bg-slate-900 p-4 sm:p-5">
+              <article key={player.id} className="glass-interactive rounded-2xl p-4 sm:p-5">
                 <div className="flex flex-wrap items-start justify-between gap-3">
                   <div>
-                    <p className="font-bold text-white">{player.nickname}</p>
-                    <p className="mt-1 text-xs text-slate-500">
+                    <p className="break-words font-bold text-ink">{player.nickname}</p>
+                    <p className="mt-1 text-xs text-ink-muted">
                       {settlement.transactionCount} transactions
                     </p>
                   </div>
                   {completed ? (
-                    <p className={`text-lg font-bold ${settlement.pokerResult >= 0 ? 'text-emerald-300' : 'text-red-300'}`}>
+                    <p className={`text-xl font-black tabular-nums ${resultColor(settlement.pokerResult)}`}>
                       {settlement.pokerResult > 0 ? '+' : ''}{formatMoney(settlement.pokerResult)}
                     </p>
                   ) : (
                     <span className="rounded-full bg-amber-400/10 px-2 py-1 text-xs font-bold text-amber-300">Incomplete</span>
                   )}
                 </div>
-                <dl className="mt-4 grid grid-cols-2 gap-3 border-t border-slate-800 pt-4 text-sm sm:grid-cols-4">
+                {completed ? (
+                  <p className="mt-3 text-sm text-ink-secondary">
+                    <span className="font-bold tabular-nums text-ink">{participation.cashOutChips ?? 0} chips</span>
+                    <span className="mx-2 text-ink-muted">→</span>
+                    <span className="font-bold tabular-nums text-ink">{formatMoney(settlement.grossCashOut)}</span>
+                  </p>
+                ) : null}
+                {settlement.remainingOutstanding ? (
+                  <p className="mt-1 text-sm font-bold text-warning">
+                    {formatMoney(settlement.remainingOutstanding)} outstanding
+                  </p>
+                ) : null}
+                <details className="group mt-4 border-t border-line/70 pt-2">
+                  <summary className="flex min-h-11 cursor-pointer list-none items-center justify-between text-sm font-bold text-ink-secondary transition hover:text-ink focus-visible:outline-2 focus-visible:outline-ink">
+                    Settlement details
+                    <span className="transition-transform group-open:rotate-180">↓</span>
+                  </summary>
+                <dl className="grid grid-cols-2 gap-4 pb-2 pt-3 text-sm sm:grid-cols-3">
                   <PlayerValue label="Buy-ins" value={formatMoney(settlement.totalBuyIn)} />
                   <PlayerValue label="Received" value={formatMoney(settlement.receivedAmount)} />
                   <PlayerValue label="Outstanding" value={formatMoney(settlement.remainingOutstanding)} warning={settlement.remainingOutstanding > 0} />
@@ -149,10 +171,11 @@ export function SessionDetailPage() {
                     value={completed ? payoutDescription(settlement.payoutAmounts) : 'Not recorded'}
                   />
                 </dl>
+                </details>
                 <button
                   type="button"
                   onClick={() => setTransactionPlayer(player)}
-                  className="mt-4 min-h-10 text-sm font-bold text-emerald-300 hover:text-emerald-200"
+                  className="mt-2 min-h-10 text-sm font-bold text-ink-secondary transition hover:text-ink focus-visible:outline-2 focus-visible:outline-ink"
                 >
                   View transactions
                 </button>
@@ -215,8 +238,8 @@ function PlayerValue({
 }) {
   return (
     <div>
-      <dt className="text-xs text-slate-500">{label}</dt>
-      <dd className={`mt-1 font-bold ${warning ? 'text-amber-300' : 'text-white'}`}>
+      <dt className="text-xs text-ink-muted">{label}</dt>
+      <dd className={`mt-1 font-bold ${warning ? 'text-warning' : 'text-ink'}`}>
         {value}
       </dd>
     </div>
@@ -231,4 +254,10 @@ function payoutDescription(amounts: Record<'CASH' | 'CARD' | 'OTHER', number>) {
         `${method === 'OTHER' ? 'Other (legacy)' : method[0] + method.slice(1).toLowerCase()} ${formatMoney(amounts[method])}`,
     )
   return parts.length ? parts.join(' · ') : formatMoney(0)
+}
+
+function resultColor(result: number): string {
+  if (result > 0) return 'text-positive'
+  if (result < 0) return 'text-negative'
+  return 'text-ink'
 }

@@ -32,7 +32,7 @@ export function PlayerDetailPage() {
       <EmptyState
         title="Player not found"
         description="This player may have been removed or the link is incorrect."
-        action={<Link to="/players" className="text-emerald-300">Back to players</Link>}
+        action={<Link to="/players" className="font-bold text-ink-secondary">Back to players</Link>}
       />
     )
   }
@@ -56,10 +56,10 @@ export function PlayerDetailPage() {
       value: formatMoney(stats.profitLoss),
       accent:
         stats.profitLoss > 0
-          ? 'text-emerald-300'
+          ? 'text-positive'
           : stats.profitLoss < 0
-            ? 'text-red-300'
-            : 'text-white',
+            ? 'text-negative'
+            : 'text-ink',
     },
   ]
 
@@ -95,8 +95,8 @@ export function PlayerDetailPage() {
   }
 
   return (
-    <div className="space-y-7">
-      <Link to="/players" className="text-sm font-bold text-slate-400 hover:text-white">
+    <div className="section-enter space-y-9">
+      <Link to="/players" className="text-sm font-bold text-ink-secondary transition hover:text-ink">
         ← Players
       </Link>
       <PageHeader
@@ -118,18 +118,18 @@ export function PlayerDetailPage() {
           </div>
         }
       />
-      <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
+      <dl className="glass-surface grid grid-cols-2 gap-x-6 gap-y-7 rounded-2xl p-5 lg:grid-cols-4 lg:p-6">
         {statItems.map((stat) => (
-          <div key={stat.label} className="rounded-2xl border border-slate-800 bg-slate-900 p-4 sm:p-5">
-            <p className="text-xs text-slate-500">{stat.label}</p>
-            <p className={`mt-2 text-xl font-bold ${stat.accent ?? 'text-white'}`}>
+          <div key={stat.label}>
+            <dt className="text-xs text-ink-muted">{stat.label}</dt>
+            <dd className={`mt-2 text-xl font-black tracking-tight tabular-nums ${stat.accent ?? 'text-ink'}`}>
               {stat.value}
-            </p>
+            </dd>
           </div>
         ))}
-      </div>
-      <section className="rounded-2xl border border-slate-800 bg-slate-900/60 p-4 sm:p-5">
-        <p className="text-sm leading-6 text-slate-400">
+      </dl>
+      <section className="border-t border-line/70 pt-6">
+        <p className="max-w-2xl text-sm leading-6 text-ink-secondary">
           Financial totals use only sessions with a completed cash-out, so older incomplete sessions do not create misleading profit/loss.
         </p>
         {stats.incompleteSessions ? (
@@ -138,12 +138,12 @@ export function PlayerDetailPage() {
           </p>
         ) : null}
         {hasHistory ? (
-          <p className="mt-3 text-sm text-slate-300">
+          <p className="mt-3 text-sm text-ink-secondary">
             This player has historical data, so they can be archived but not permanently deleted.
           </p>
         ) : (
-          <div className="mt-4 flex flex-wrap items-center justify-between gap-3 border-t border-slate-800 pt-4">
-            <p className="text-sm text-slate-500">No session history exists for this player.</p>
+          <div className="mt-4 flex flex-wrap items-center justify-between gap-3 border-t border-line pt-4">
+            <p className="text-sm text-ink-muted">No session history exists for this player.</p>
             <Button variant="danger" onClick={() => setPendingAction('delete')} disabled={isSaving}>
               Delete permanently
             </Button>

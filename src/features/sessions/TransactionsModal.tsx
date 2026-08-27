@@ -94,7 +94,7 @@ export function TransactionsModal({
           {error}
         </p>
       ) : null}
-      <div className="space-y-3">
+      <div className="divide-y divide-line/70 border-y border-line/70">
         {ordered.map((transaction) => {
           const offsetAmount = sumMoney(
             paymentOffsets
@@ -108,13 +108,13 @@ export function TransactionsModal({
             <form
               key={transaction.id}
               onSubmit={saveCorrection}
-              className="space-y-4 rounded-xl border border-emerald-400/30 bg-slate-950/60 p-4"
+              className="glass-surface my-3 space-y-4 rounded-xl p-4"
             >
               <div className="flex items-center justify-between gap-3">
-                <p className="font-bold text-white">
+                <p className="font-bold text-ink">
                   Correct {transaction.type.replace('_', ' ')}
                 </p>
-                <span className="text-xs text-slate-500">Keeps the same ledger entry</span>
+                <span className="text-xs text-ink-muted">Keeps the same ledger entry</span>
               </div>
               <div className="grid grid-cols-2 gap-3">
                 <label>
@@ -201,17 +201,17 @@ export function TransactionsModal({
           ) : (
             <div
               key={transaction.id}
-              className="rounded-xl border border-slate-800 bg-slate-950/60 p-4"
+              className="py-4"
             >
               <div className="flex items-start justify-between gap-4">
                 <div>
                   <div className="flex flex-wrap items-center gap-2">
-                    <p className="font-bold text-white">
+                    <p className="font-bold text-ink">
                       {transaction.type.replace('_', ' ')}
                     </p>
                     <StatusBadge status={transaction.paymentStatus} />
                   </div>
-                  <p className="mt-1 text-xs text-slate-500">
+                  <p className="mt-1 text-xs text-ink-muted">
                     {transaction.chips} chips · {transaction.paymentMethod}
                   </p>
                   {offsetAmount ? (
@@ -223,11 +223,11 @@ export function TransactionsModal({
                     </p>
                   ) : null}
                 </div>
-                <p className="shrink-0 font-bold text-white">
+                <p className="shrink-0 font-bold tabular-nums text-ink">
                   {formatMoney(transaction.amount)}
                 </p>
               </div>
-              <div className="mt-3 flex flex-wrap gap-2 border-t border-slate-800 pt-3">
+              <div className="mt-3 flex flex-wrap gap-2 border-t border-line/70 pt-3">
                 {transaction.paymentStatus === 'PENDING' &&
                 toMinorUnits(outstanding) > 0 ? (
                   <Button

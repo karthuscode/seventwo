@@ -1,7 +1,5 @@
 import { Link } from 'react-router-dom'
-import { EmptyState } from '../components/EmptyState'
 import { PageHeader } from '../components/PageHeader'
-import { StatusBadge } from '../components/StatusBadge'
 import { useAppData } from '../hooks/useAppData'
 import { calculateBankSummary } from '../utils/calculations'
 import { formatDate, formatMoney } from '../utils/format'
@@ -13,10 +11,10 @@ export function HistoryPage() {
     .sort((a, b) => b.date.localeCompare(a.date))
 
   return (
-    <div className="space-y-7">
+    <div className="section-enter space-y-9">
       <PageHeader eyebrow="Archive" title="Session history" description="Finished games, newest first." />
       {finishedSessions.length ? (
-        <div className="space-y-3">
+        <div className="glass-surface divide-y divide-line/70 overflow-hidden rounded-2xl px-4 sm:px-5">
           {finishedSessions.map((session) => {
             const total = calculateBankSummary(
               transactions.filter((item) => item.sessionId === session.id),
@@ -25,24 +23,21 @@ export function HistoryPage() {
               (item) => item.sessionId === session.id,
             ).length
             return (
-              <Link key={session.id} to={`/sessions/${session.id}`} className="flex flex-col gap-4 rounded-2xl border border-slate-800 bg-slate-900 p-5 transition hover:border-slate-700 sm:flex-row sm:items-center sm:justify-between">
-                <div>
-                  <div className="flex flex-wrap items-center gap-2">
-                    <h2 className="font-bold text-white">{session.name}</h2>
-                    <StatusBadge status={session.status} />
-                  </div>
-                  <p className="mt-2 text-xs text-slate-500">{formatDate(session.date)} · {playerCount} players</p>
+              <Link key={session.id} to={`/sessions/${session.id}`} className="group flex min-h-24 items-center justify-between gap-5 py-5 transition hover:pl-1">
+                <div className="min-w-0">
+                  <h2 className="truncate font-bold text-ink" title={session.name}>{session.name}</h2>
+                  <p className="mt-2 text-xs text-ink-muted">{formatDate(session.date)} · {playerCount} players</p>
                 </div>
-                <div className="sm:text-right">
-                  <p className="text-xs text-slate-500">Total buy-ins</p>
-                  <p className="mt-1 font-bold text-white">{formatMoney(total)}</p>
+                <div className="shrink-0 text-right">
+                  <p className="font-black tabular-nums text-ink">{formatMoney(total)}</p>
+                  <p className="mt-1 text-lg text-ink-muted transition group-hover:translate-x-0.5 group-hover:text-ink">→</p>
                 </div>
               </Link>
             )
           })}
         </div>
       ) : (
-        <EmptyState title="No finished sessions yet" description="Completed games will be preserved here once session settlement is implemented." />
+        <p className="py-5 text-sm text-ink-muted">No finished sessions yet.</p>
       )}
     </div>
   )

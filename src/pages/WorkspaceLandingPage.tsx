@@ -2,6 +2,7 @@ import { useState, type FormEvent } from 'react'
 import { Button } from '../components/Button'
 import { useAuth } from '../hooks/useAuth'
 import { useWorkspaces } from '../hooks/useWorkspaces'
+import { BrandBackdrop } from '../components/BrandBackdrop'
 
 type WorkspaceAction = 'create' | 'join' | null
 
@@ -42,19 +43,20 @@ export function WorkspaceLandingPage() {
   }
 
   return (
-    <main className="min-h-svh bg-slate-950 px-4 py-8 text-slate-100 sm:py-12">
-      <div className="mx-auto max-w-xl">
+    <main className="relative min-h-svh overflow-hidden bg-app-bg px-4 pb-[max(2rem,env(safe-area-inset-bottom,0px))] pt-[max(2rem,env(safe-area-inset-top,0px))] text-ink sm:py-12">
+      <BrandBackdrop />
+      <div className="relative z-10 mx-auto max-w-xl">
         <header className="text-center">
-          <div className="mx-auto flex size-14 items-center justify-center rounded-2xl bg-emerald-400 text-xl font-black text-slate-950">72</div>
-          <p className="mt-5 text-xs font-black uppercase tracking-[0.28em] text-emerald-400">SevenTwo</p>
-          <h1 className="mt-2 text-3xl font-bold text-white">Your workspaces</h1>
-          <p className="mx-auto mt-2 max-w-md text-sm leading-6 text-slate-400">
+          <div className="glass-raised mx-auto flex size-14 items-center justify-center rounded-2xl text-xl font-black text-ink">72</div>
+          <p className="section-label mt-5">SevenTwo</p>
+          <h1 className="mt-2 text-3xl font-black tracking-tight text-ink">Your workspaces</h1>
+          <p className="mx-auto mt-2 max-w-md text-sm leading-6 text-ink-secondary">
             Each workspace is one private poker group with its own players, sessions, and bank.
           </p>
         </header>
 
         {mode === 'local' ? (
-          <div className="mt-6 rounded-xl border border-amber-400/20 bg-amber-400/5 p-4 text-sm leading-6 text-amber-100">
+          <div className="glass-warning mt-6 rounded-xl p-4 text-sm leading-6 text-amber-100">
             Local demo · Workspace codes work only in this browser and do not sync across devices.
           </div>
         ) : null}
@@ -66,18 +68,18 @@ export function WorkspaceLandingPage() {
                 key={workspace.id}
                 type="button"
                 onClick={() => selectWorkspace(workspace.id)}
-                className="flex min-h-16 w-full items-center justify-between rounded-2xl border border-slate-800 bg-slate-900 px-5 text-left transition hover:border-emerald-400/40"
+                className="glass-interactive flex min-h-16 w-full items-center justify-between rounded-2xl px-5 text-left"
               >
-                <span>
-                  <span className="block font-bold text-white">{workspace.name}</span>
-                  <span className="mt-1 block text-xs text-slate-500">{workspace.role}</span>
+                <span className="min-w-0 pr-3">
+                  <span className="block truncate font-bold text-ink" title={workspace.name}>{workspace.name}</span>
+                  <span className="mt-1 block text-xs text-ink-muted">{workspace.role}</span>
                 </span>
-                <span className="text-emerald-300">→</span>
+                <span className="text-ink-muted">→</span>
               </button>
             ))}
           </section>
         ) : (
-          <p className="mt-7 rounded-2xl border border-dashed border-slate-700 p-6 text-center text-sm text-slate-400">
+          <p className="mt-7 py-5 text-center text-sm text-ink-muted">
             Create your first poker workspace or join one with a six-digit code.
           </p>
         )}
@@ -88,10 +90,10 @@ export function WorkspaceLandingPage() {
         </div>
 
         {action === 'create' ? (
-          <form onSubmit={handleCreate} className="mt-4 space-y-4 rounded-2xl border border-slate-800 bg-slate-900 p-5">
+          <form onSubmit={handleCreate} className="glass-surface mt-4 space-y-4 rounded-2xl p-5">
             <div>
-              <h2 className="font-bold text-white">Create workspace</h2>
-              <p className="mt-1 text-xs text-slate-500">You become its owner.</p>
+              <h2 className="font-bold text-ink">Create workspace</h2>
+              <p className="mt-1 text-xs text-ink-muted">You become its owner.</p>
             </div>
             <label className="block">
               <span className="label">Workspace name</span>
@@ -106,10 +108,10 @@ export function WorkspaceLandingPage() {
         ) : null}
 
         {action === 'join' ? (
-          <form onSubmit={handleJoin} className="mt-4 space-y-4 rounded-2xl border border-slate-800 bg-slate-900 p-5">
+          <form onSubmit={handleJoin} className="glass-surface mt-4 space-y-4 rounded-2xl p-5">
             <div>
-              <h2 className="font-bold text-white">Join workspace</h2>
-              <p className="mt-1 text-xs text-slate-500">Ask a trusted host for the six-digit code.</p>
+              <h2 className="font-bold text-ink">Join workspace</h2>
+              <p className="mt-1 text-xs text-ink-muted">Ask a trusted host for the six-digit code.</p>
             </div>
             <label className="block">
               <span className="label">Workspace code</span>

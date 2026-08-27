@@ -13,6 +13,7 @@ import { WorkspaceProvider } from './features/workspaces/WorkspaceProvider'
 import { useAuth } from './hooks/useAuth'
 import { useWorkspaces } from './hooks/useWorkspaces'
 import { WorkspaceLandingPage } from './pages/WorkspaceLandingPage'
+import { BrandBackdrop } from './components/BrandBackdrop'
 
 const router = createBrowserRouter([
   {
@@ -35,20 +36,22 @@ export default function App() {
 
   if (isLoading) {
     return (
-      <main className="flex min-h-svh items-center justify-center bg-slate-950 text-slate-100">
-        <p className="text-sm text-slate-400">Starting SevenTwo…</p>
+      <main className="relative flex min-h-svh items-center justify-center bg-app-bg text-ink">
+        <BrandBackdrop />
+        <p className="relative z-10 text-sm text-ink-muted">Starting SevenTwo…</p>
       </main>
     )
   }
 
   if (!isAuthenticated) {
     return (
-      <main className="flex min-h-svh items-center justify-center bg-slate-950 px-4 text-slate-100">
-        <div className="w-full max-w-md rounded-2xl border border-red-900/50 bg-red-950/20 p-6 text-center">
-          <div className="mx-auto flex size-12 items-center justify-center rounded-xl bg-emerald-400 font-black text-slate-950">72</div>
-          <h1 className="mt-4 text-xl font-bold text-white">SevenTwo could not start</h1>
+      <main className="relative flex min-h-svh items-center justify-center bg-app-bg px-4 text-ink">
+        <BrandBackdrop />
+        <div className="relative z-10 w-full max-w-md rounded-2xl bg-red-950/20 p-6 text-center">
+          <div className="glass-raised mx-auto flex size-12 items-center justify-center rounded-xl font-black text-ink">72</div>
+          <h1 className="mt-4 text-xl font-bold text-ink">SevenTwo could not start</h1>
           <p className="mt-2 text-sm leading-6 text-red-200">{error ?? 'Anonymous access is unavailable.'}</p>
-          <button type="button" onClick={() => void retry()} className="mt-5 min-h-12 rounded-xl bg-emerald-400 px-5 font-bold text-slate-950">
+          <button type="button" onClick={() => void retry()} className="mt-5 min-h-12 rounded-xl bg-ink px-5 font-bold text-app-bg">
             Try again
           </button>
         </div>
@@ -68,8 +71,9 @@ function WorkspaceGate() {
 
   if (isLoading) {
     return (
-      <main className="flex min-h-svh items-center justify-center bg-slate-950 text-slate-100">
-        <p className="text-sm text-slate-400">Loading workspaces…</p>
+      <main className="relative flex min-h-svh items-center justify-center bg-app-bg text-ink">
+        <BrandBackdrop />
+        <p className="relative z-10 text-sm text-ink-muted">Loading workspaces…</p>
       </main>
     )
   }

@@ -11,12 +11,15 @@ import { formatMoney } from '../utils/format'
 export function PlayersPage() {
   const { players, sessionPlayers, transactions } = useAppData()
   const [showAddPlayer, setShowAddPlayer] = useState(false)
-  const orderedPlayers = [...players].sort((a, b) =>
-    a.nickname.localeCompare(b.nickname),
-  )
+  const orderedPlayers = [...players].sort((a, b) => {
+    if (Boolean(a.archivedAt) !== Boolean(b.archivedAt)) {
+      return a.archivedAt ? 1 : -1
+    }
+    return a.nickname.localeCompare(b.nickname)
+  })
 
   return (
-    <div className="space-y-7">
+    <div className="section-enter space-y-9">
       <PageHeader
         eyebrow="Roster"
         title="Players"
@@ -36,23 +39,23 @@ export function PlayersPage() {
               <Link
                 key={player.id}
                 to={`/players/${player.id}`}
-                className="group rounded-2xl border border-slate-800 bg-slate-900 p-5 transition hover:border-slate-700 hover:bg-slate-800/70"
+                className={`glass-interactive group rounded-2xl p-5 ${player.archivedAt ? 'opacity-55 hover:opacity-80' : ''}`}
               >
                 <div className="flex items-center justify-between">
-                  <div className="flex size-11 items-center justify-center rounded-full bg-slate-800 text-base font-black text-emerald-300 group-hover:bg-slate-700">
+                  <div className="flex size-11 items-center justify-center rounded-full bg-white/[0.055] text-base font-black text-ink-secondary transition group-hover:bg-white/10 group-hover:text-ink">
                     {player.nickname.slice(0, 2).toUpperCase()}
                   </div>
-                  <span className="text-slate-600 group-hover:text-emerald-300">→</span>
+                  <span className="text-ink-muted transition group-hover:translate-x-0.5 group-hover:text-ink">→</span>
                 </div>
-                <h2 className="mt-5 text-lg font-bold text-white">
+                <h2 className="mt-5 break-words text-lg font-black text-ink">
                   {player.nickname}
                 </h2>
                 {player.archivedAt ? (
-                  <span className="mt-2 inline-flex rounded-full bg-slate-700/60 px-2 py-1 text-[11px] font-bold uppercase tracking-wider text-slate-400">
+                  <span className="mt-2 inline-flex rounded-full bg-white/[0.045] px-2 py-1 text-[10px] font-black uppercase tracking-wider text-ink-muted">
                     Archived
                   </span>
                 ) : null}
-                <div className="mt-3 flex gap-5 text-xs text-slate-500">
+                <div className="mt-3 flex flex-wrap gap-x-5 gap-y-1 text-xs text-ink-muted">
                   <span>{stats.sessionsPlayed} sessions</span>
                   <span>{formatMoney(stats.totalBuyIn)} buy-in</span>
                 </div>

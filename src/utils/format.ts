@@ -1,9 +1,14 @@
 export function formatMoney(amount: number, currency = 'RON'): string {
-  return new Intl.NumberFormat('en-RO', {
-    style: 'currency',
-    currency,
-    maximumFractionDigits: 2,
-  }).format(amount)
+  const roundedAmount =
+    Math.sign(amount) *
+    (Math.round((Math.abs(amount) + Number.EPSILON) * 100) / 100)
+  const displayAmount = Object.is(roundedAmount, -0) ? 0 : roundedAmount
+  const hasFraction = Math.abs(displayAmount % 1) > Number.EPSILON
+  const formattedAmount = new Intl.NumberFormat('en-RO', {
+    minimumFractionDigits: hasFraction ? 2 : 0,
+    maximumFractionDigits: hasFraction ? 2 : 0,
+  }).format(displayAmount)
+  return `${formattedAmount} ${currency}`
 }
 
 export function formatDate(date: string): string {

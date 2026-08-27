@@ -1,76 +1,75 @@
 import { Link } from 'react-router-dom'
-import { Button } from '../components/Button'
-import { EmptyState } from '../components/EmptyState'
-import { PageHeader } from '../components/PageHeader'
 import { StatusBadge } from '../components/StatusBadge'
+import { pickPokerQuote } from '../content/pokerQuotes'
 import { useAppData } from '../hooks/useAppData'
 import { calculateBankSummary } from '../utils/calculations'
 import { formatDate, formatMoney } from '../utils/format'
 
+const dashboardQuote = pickPokerQuote()
+
 export function DashboardPage() {
-  const { sessions, sessionPlayers, transactions } = useAppData()
+  const {
+    sessions,
+    sessionPlayers,
+    transactions,
+    payoutAllocations,
+    paymentOffsets,
+  } = useAppData()
   const activeSession = sessions.find((session) => session.status === 'ACTIVE')
   const recentSessions = [...sessions]
     .sort((a, b) => b.date.localeCompare(a.date))
     .slice(0, 4)
 
   return (
-    <div className="space-y-8">
-      <PageHeader
-        eyebrow="SevenTwo"
-        title="Your poker table, organized."
-        description="Keep players, payments, and the common bank clear while the game stays moving."
-        action={
-          <Link to="/sessions/new">
-            <Button className="w-full sm:w-auto">+ New session</Button>
-          </Link>
-        }
-      />
+    <div className="section-enter space-y-9 sm:space-y-10">
+      <header className="max-w-[44rem] pt-1 sm:pt-2">
+        <p className="section-label">SevenTwo</p>
+        <h1 className="quote-enter mt-3 max-w-[18ch] [overflow-wrap:anywhere] text-[clamp(2.2rem,6vw,4.15rem)] font-black leading-[0.96] tracking-[-0.05em] text-ink">
+          {dashboardQuote}
+        </h1>
+        <Link
+          to="/sessions/new"
+          className="glass-interactive mt-6 inline-flex min-h-12 items-center justify-center rounded-xl px-4 py-2.5 text-sm font-bold text-ink focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ink"
+        >
+          + New session
+        </Link>
+      </header>
+
+      {activeSession ? (
+        <ActiveSessionPreview
+          session={activeSession}
+          playerCount={
+            sessionPlayers.filter((item) => item.sessionId === activeSession.id)
+              .length
+          }
+          bank={calculateBankSummary(
+            transactions.filter(
+              (transaction) => transaction.sessionId === activeSession.id,
+            ),
+            payoutAllocations.filter(
+              (allocation) => allocation.sessionId === activeSession.id,
+            ),
+            paymentOffsets.filter(
+              (offset) => offset.sessionId === activeSession.id,
+            ),
+          )}
+        />
+      ) : null}
 
       <section>
-        <h2 className="mb-3 text-sm font-bold uppercase tracking-wider text-slate-500">
-          Active session
-        </h2>
-        {activeSession ? (
-          <ActiveSessionCard
-            session={activeSession}
-            playerCount={
-              sessionPlayers.filter(
-                (item) => item.sessionId === activeSession.id,
-              ).length
-            }
-            transactionTotal={
-              calculateBankSummary(
-                transactions.filter(
-                  (transaction) => transaction.sessionId === activeSession.id,
-                ),
-              ).committed
-            }
-          />
-        ) : (
-          <EmptyState
-            title="No game running"
-            description="Create a session, choose the players at the table, and start tracking buy-ins."
-            action={
-              <Link to="/sessions/new">
-                <Button>Start a session</Button>
-              </Link>
-            }
-          />
-        )}
-      </section>
-
-      <section>
-        <div className="mb-3 flex items-center justify-between">
-          <h2 className="text-sm font-bold uppercase tracking-wider text-slate-500">
-            Recent sessions
-          </h2>
-          <Link to="/history" className="text-sm font-bold text-emerald-300">
-            View history
-          </Link>
+        <div className="mb-4 flex items-center justify-between gap-4">
+          <h2 className="section-label">Recent sessions</h2>
+          {recentSessions.length ? (
+            <Link
+              to="/history"
+              className="min-h-11 px-1 py-3 text-sm font-bold text-ink-secondary transition hover:text-ink focus-visible:outline-2 focus-visible:outline-ink"
+            >
+              View history
+            </Link>
+          ) : null}
         </div>
         {recentSessions.length ? (
-          <div className="overflow-hidden rounded-2xl border border-slate-800 bg-slate-900">
+          <div className="glass-surface divide-y divide-line/70 overflow-hidden rounded-2xl px-4 sm:px-5">
             {recentSessions.map((session) => {
               const playerCount = sessionPlayers.filter(
                 (item) => item.sessionId === session.id,
@@ -83,22 +82,29 @@ export function DashboardPage() {
                       ? `/sessions/${session.id}/active`
                       : `/sessions/${session.id}`
                   }
-                  className="flex items-center justify-between gap-4 border-b border-slate-800 p-4 last:border-0 hover:bg-slate-800/50"
+                  className="group flex min-h-20 items-center justify-between gap-4 py-4 transition hover:pl-1"
                 >
-                  <div>
-                    <p className="font-bold text-white">{session.name}</p>
-                    <p className="mt-1 text-xs text-slate-500">
+                  <div className="min-w-0">
+                    <p className="truncate font-bold text-ink">{session.name}</p>
+                    <p className="mt-1 text-xs text-ink-muted">
                       {formatDate(session.date)} · {playerCount} players
                     </p>
                   </div>
-                  <StatusBadge status={session.status} />
+                  <div className="flex shrink-0 items-center gap-3">
+                    {session.status === 'ACTIVE' ? (
+                      <StatusBadge status="ACTIVE" />
+                    ) : null}
+                    <span className="text-lg text-ink-muted transition group-hover:translate-x-0.5 group-hover:text-ink">
+                      →
+                    </span>
+                  </div>
                 </Link>
               )
             })}
           </div>
         ) : (
-          <p className="rounded-2xl border border-slate-800 bg-slate-900 p-5 text-sm text-slate-500">
-            Your completed sessions will appear here.
+          <p className="py-5 text-sm text-ink-muted">
+            Finished games will appear here.
           </p>
         )}
       </section>
@@ -106,42 +112,44 @@ export function DashboardPage() {
   )
 }
 
-function ActiveSessionCard({
+function ActiveSessionPreview({
   session,
   playerCount,
-  transactionTotal,
+  bank,
 }: {
   session: { id: string; name: string; date: string }
   playerCount: number
-  transactionTotal: number
+  bank: ReturnType<typeof calculateBankSummary>
 }) {
   return (
-    <Link
-      to={`/sessions/${session.id}/active`}
-      className="block overflow-hidden rounded-3xl border border-emerald-400/20 bg-gradient-to-br from-emerald-400/15 via-slate-900 to-slate-900 p-5 transition hover:border-emerald-400/40 sm:p-7"
-    >
-      <div className="flex items-start justify-between gap-4">
-        <div>
-          <StatusBadge status="ACTIVE" />
-          <h3 className="mt-4 text-2xl font-bold text-white">{session.name}</h3>
-          <p className="mt-1 text-sm text-slate-400">{formatDate(session.date)}</p>
+    <section className="live-session-aura">
+      <p className="section-label mb-4 flex items-center gap-2 text-ink-secondary">
+        <span className="live-dot" aria-hidden="true" />
+        Live now
+      </p>
+      <Link
+        to={`/sessions/${session.id}/active`}
+        className="glass-interactive group block rounded-2xl p-5 sm:p-7"
+      >
+        <div className="flex items-start justify-between gap-5">
+          <div className="min-w-0">
+            <h2 className="truncate text-2xl font-black tracking-tight text-ink sm:text-3xl">
+              {session.name}
+            </h2>
+            <p className="mt-1 text-sm text-ink-muted">{formatDate(session.date)}</p>
+          </div>
+          <span className="flex size-11 shrink-0 items-center justify-center rounded-full bg-white/8 text-xl text-ink transition group-hover:translate-x-0.5 group-hover:bg-white/12">
+            →
+          </span>
         </div>
-        <span className="flex size-12 items-center justify-center rounded-full bg-emerald-400 text-xl text-slate-950">
-          →
-        </span>
-      </div>
-      <div className="mt-7 grid grid-cols-2 gap-3 border-t border-slate-700/70 pt-5">
-        <div>
-          <p className="text-xs text-slate-500">At the table</p>
-          <p className="mt-1 font-bold text-white">{playerCount} players</p>
+        <div className="mt-7 flex flex-wrap gap-x-6 gap-y-2 text-sm text-ink-secondary">
+          <span>{playerCount} players</span>
+          <span className="font-bold text-ink">{formatMoney(bank.committed)} buy-ins</span>
+          {bank.pending ? (
+            <span className="font-bold text-warning">{formatMoney(bank.pending)} pending</span>
+          ) : null}
         </div>
-        <div>
-          <p className="text-xs text-slate-500">Total buy-ins</p>
-          <p className="mt-1 font-bold text-white">
-            {formatMoney(transactionTotal)}
-          </p>
-        </div>
-      </div>
-    </Link>
+      </Link>
+    </section>
   )
 }

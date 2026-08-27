@@ -4,15 +4,15 @@ interface StatusBadgeProps {
 
 export function StatusBadge({ status }: StatusBadgeProps) {
   const styles =
-    status === 'ACTIVE' || status === 'RECEIVED'
-      ? 'bg-emerald-400/10 text-emerald-300 ring-emerald-400/20'
-      : status === 'PENDING'
-        ? 'bg-amber-400/10 text-amber-300 ring-amber-400/20'
-        : 'bg-slate-700/60 text-slate-300 ring-slate-600'
+    status === 'PENDING'
+      ? 'border border-amber-300/15 bg-amber-400/8 text-warning'
+      : status === 'ACTIVE'
+        ? 'border border-white/10 bg-white/8 text-ink'
+        : 'border border-white/[0.06] bg-white/[0.045] text-ink-secondary'
 
   return (
     <span
-      className={`inline-flex rounded-full px-2.5 py-1 text-[11px] font-bold uppercase tracking-wider ring-1 ${styles}`}
+      className={`inline-flex rounded-full px-2.5 py-1 text-[10px] font-black uppercase tracking-[0.14em] ${styles}`}
     >
       {status.replace('_', ' ')}
     </span>

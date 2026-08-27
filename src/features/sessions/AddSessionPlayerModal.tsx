@@ -82,8 +82,8 @@ export function AddSessionPlayerModal({
               ))}
             </select>
           </label>
-          <div className="rounded-xl bg-slate-950/70 p-3 text-sm text-slate-300">
-            Initial buy-in: <strong className="text-white">{session.buyInAmount} RON</strong> · {session.chipsPerBuyIn} chips
+          <div className="glass-surface rounded-xl p-3 text-sm text-ink-secondary">
+            Initial buy-in: <strong className="text-ink">{session.buyInAmount} RON</strong> · {session.chipsPerBuyIn} chips
           </div>
           <fieldset>
             <legend className="label">Payment method</legend>
@@ -123,7 +123,7 @@ export function AddSessionPlayerModal({
           </Button>
         </form>
       ) : (
-        <p className="text-sm leading-6 text-slate-400">
+        <p className="text-sm leading-6 text-ink-secondary">
           Every active saved player is already in this session, or there are no unarchived players left to add.
         </p>
       )}

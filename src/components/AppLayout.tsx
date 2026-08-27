@@ -1,4 +1,5 @@
 import { NavLink, Outlet } from 'react-router-dom'
+import { BrandBackdrop } from './BrandBackdrop'
 import { WorkspaceCodeModal } from '../features/workspaces/WorkspaceCodeModal'
 import { WorkspaceMenu } from '../features/workspaces/WorkspaceMenu'
 import { useAppData } from '../hooks/useAppData'
@@ -11,17 +12,17 @@ const navItems = [
 
 function Navigation() {
   return (
-    <nav className="flex items-center justify-around gap-1 md:flex-col md:items-stretch md:gap-2">
+    <nav className="flex items-center justify-around gap-1 md:flex-col md:items-stretch md:gap-1.5">
       {navItems.map((item) => (
         <NavLink
           key={item.to}
           to={item.to}
           end={item.end}
           className={({ isActive }) =>
-            `flex min-h-14 flex-1 items-center justify-center gap-2 rounded-xl px-3 text-sm font-semibold transition md:flex-none md:justify-start ${
+            `relative flex min-h-14 flex-1 items-center justify-center gap-2 rounded-xl px-3 text-xs font-bold transition duration-150 after:absolute after:bottom-1 after:h-0.5 after:w-5 after:rounded-full after:bg-transparent md:flex-none md:justify-start md:text-sm md:after:bottom-auto md:after:left-1 md:after:h-5 md:after:w-0.5 ${
               isActive
-                ? 'bg-emerald-400/12 text-emerald-300'
-                : 'text-slate-500 hover:bg-slate-800 hover:text-slate-200'
+                ? 'bg-white/[0.075] text-ink shadow-[inset_0_1px_0_rgba(255,255,255,0.08)] after:bg-ink'
+                : 'text-ink-muted hover:bg-white/[0.04] hover:text-ink-secondary'
             }`
           }
         >
@@ -47,60 +48,72 @@ export function AppLayout() {
   } = useAppData()
 
   return (
-    <div className="min-h-svh bg-slate-950 text-slate-100">
-      <aside className="fixed inset-y-0 left-0 z-40 hidden w-64 border-r border-slate-800 bg-slate-950 p-5 md:block">
-        <NavLink to="/" className="mb-9 flex items-center gap-3 px-2">
-          <span className="flex size-10 items-center justify-center rounded-xl bg-emerald-400 font-black text-slate-950">
+    <div className="relative min-h-svh bg-app-bg text-ink">
+      <BrandBackdrop />
+      <aside className="glass-raised fixed bottom-5 left-5 top-5 z-40 hidden w-56 min-h-0 flex-col rounded-[1.375rem] p-4 md:flex">
+        <NavLink to="/" className="flex shrink-0 items-center gap-3 px-2 py-1">
+          <span className="flex size-10 items-center justify-center rounded-xl border border-white/10 bg-white/[0.06] font-black text-ink">
             72
           </span>
-          <div>
-            <p className="font-bold leading-tight text-white">SevenTwo</p>
-            <p className="text-xs text-slate-500">{workspace.name}</p>
+          <div className="min-w-0">
+            <p className="font-black leading-tight text-ink">SevenTwo</p>
+            <p className="text-xs text-ink-muted">Poker companion</p>
           </div>
         </NavLink>
-        <Navigation />
-        <div className="absolute inset-x-5 bottom-5">
-          <p className="mb-2 px-2 text-xs text-slate-600">
+        <div className="min-h-0 flex-1 overflow-y-auto py-7">
+          <Navigation />
+        </div>
+        <div className="shrink-0 border-t border-line px-2 pt-4">
+          <p className="section-label">Workspace</p>
+          <p className="mt-2 truncate text-sm font-bold text-ink" title={workspace.name}>
+            {workspace.name}
+          </p>
+          <p className="mt-1 text-[11px] text-ink-muted">
             {repositoryKind === 'supabase' ? 'Shared workspace' : 'Local demo'}
           </p>
-          <WorkspaceMenu triggerClassName="min-h-11 w-full rounded-xl px-3 text-left text-sm font-semibold text-slate-500 hover:bg-slate-800 hover:text-white" />
+          <WorkspaceMenu triggerClassName="mt-2 min-h-11 w-full rounded-xl text-left text-sm font-semibold text-ink-secondary transition hover:bg-white/[0.055] hover:text-ink focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ink" />
         </div>
       </aside>
 
-      <main className="mx-auto min-h-svh max-w-6xl px-4 pb-28 pt-6 sm:px-6 sm:pt-9 md:ml-64 md:px-8 md:pb-12 lg:px-12">
-        <div className="mb-6 flex items-center justify-between md:hidden">
-          <div className="flex items-center gap-2">
-            <span className="flex size-9 items-center justify-center rounded-xl bg-emerald-400 text-sm font-black text-slate-950">72</span>
-            <div>
-              <p className="text-sm font-bold text-white">SevenTwo</p>
-              <p className="text-[11px] text-slate-500">{workspace.name}</p>
+      <main className="app-main relative z-10 min-h-svh px-4 sm:px-6 md:ml-64 md:px-8 lg:px-12">
+        <div className="mx-auto max-w-6xl">
+          <div className="mb-7 flex min-h-12 items-center justify-between md:hidden">
+            <div className="flex min-w-0 flex-1 items-center gap-2.5">
+              <span className="glass-surface flex size-9 shrink-0 items-center justify-center rounded-xl text-sm font-black text-ink">72</span>
+              <div className="min-w-0">
+                <p className="text-sm font-black leading-tight text-ink">SevenTwo</p>
+                <p className="truncate text-[11px] text-ink-muted">{workspace.name}</p>
+              </div>
             </div>
+            <WorkspaceMenu
+              triggerLabel="Switch"
+              triggerClassName="min-h-11 shrink-0 rounded-xl px-2.5 text-xs font-bold text-ink-secondary transition hover:bg-white/[0.055] hover:text-ink focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ink"
+            />
           </div>
-          <WorkspaceMenu triggerClassName="min-h-11 rounded-xl px-3 text-sm font-semibold text-slate-400 hover:bg-slate-800" />
+          {repositoryKind === 'local' ? (
+            <div className="glass-warning mb-5 rounded-xl px-4 py-3 text-sm text-amber-100">
+              Local demo mode · Data stays on this device only.
+            </div>
+          ) : null}
+          {canImportLocalData ? (
+            <div className="glass-surface mb-5 flex flex-col gap-3 rounded-xl px-4 py-3 sm:flex-row sm:items-center sm:justify-between">
+              <p className="text-sm text-ink-secondary">Phase 1 data was found on this device. Import it into the empty shared workspace?</p>
+              <button type="button" disabled={isSaving} onClick={() => void importLocalData()} className="min-h-11 shrink-0 rounded-xl bg-ink px-4 text-sm font-bold text-app-bg disabled:opacity-50">
+                {isSaving ? 'Importing…' : 'Import local data'}
+              </button>
+            </div>
+          ) : null}
+          {error ? (
+            <div role="alert" className="glass-danger mb-5 flex items-start justify-between gap-4 rounded-xl px-4 py-3 text-sm text-red-200">
+              <span>{error}</span>
+              <button type="button" onClick={clearError} aria-label="Dismiss error" className="min-h-8 px-2 text-red-300">×</button>
+            </div>
+          ) : null}
+          <Outlet />
         </div>
-        {repositoryKind === 'local' ? (
-          <div className="mb-5 rounded-xl border border-amber-400/20 bg-amber-400/5 px-4 py-3 text-sm text-amber-100">
-            Local demo mode · Data stays on this device only.
-          </div>
-        ) : null}
-        {canImportLocalData ? (
-          <div className="mb-5 flex flex-col gap-3 rounded-xl border border-emerald-400/20 bg-emerald-400/5 px-4 py-3 sm:flex-row sm:items-center sm:justify-between">
-            <p className="text-sm text-emerald-100">Phase 1 data was found on this device. Import it into the empty shared workspace?</p>
-            <button type="button" disabled={isSaving} onClick={() => void importLocalData()} className="min-h-11 shrink-0 rounded-xl bg-emerald-400 px-4 text-sm font-bold text-slate-950 disabled:opacity-50">
-              {isSaving ? 'Importing…' : 'Import local data'}
-            </button>
-          </div>
-        ) : null}
-        {error ? (
-          <div role="alert" className="mb-5 flex items-start justify-between gap-4 rounded-xl border border-red-900/50 bg-red-950/30 px-4 py-3 text-sm text-red-200">
-            <span>{error}</span>
-            <button type="button" onClick={clearError} aria-label="Dismiss error" className="min-h-8 px-2 text-red-300">×</button>
-          </div>
-        ) : null}
-        <Outlet />
       </main>
 
-      <div className="fixed inset-x-0 bottom-0 z-40 border-t border-slate-800 bg-slate-950/95 px-2 pb-[env(safe-area-inset-bottom)] backdrop-blur md:hidden">
+      <div className="glass-raised bottom-nav fixed inset-x-3 z-40 rounded-2xl px-2 py-1 md:hidden">
         <Navigation />
       </div>
       <WorkspaceCodeModal />

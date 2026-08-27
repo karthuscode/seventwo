@@ -48,7 +48,7 @@ export function AddPlayerModal({ onClose, onAdded }: AddPlayerModalProps) {
     <Modal title="Add player" onClose={onClose}>
       <form onSubmit={handleSubmit} className="space-y-5">
         <label className="block">
-          <span className="mb-2 block text-sm font-semibold text-slate-300">
+          <span className="label">
             Nickname
           </span>
           <input

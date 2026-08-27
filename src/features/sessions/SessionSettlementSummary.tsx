@@ -91,14 +91,14 @@ export function SessionSettlementSummary({
   return (
     <section className="space-y-7">
       <div>
-        <p className="text-[11px] font-black uppercase tracking-[0.2em] text-slate-500">
+        <p className="section-label">
           Session settlement
         </p>
-        <h2 className="mt-1 text-2xl font-black text-white">Final check</h2>
+        <h2 className="mt-1 text-2xl font-black text-ink">Final check</h2>
       </div>
 
       <section>
-        <h3 className="text-xs font-black uppercase tracking-[0.16em] text-slate-500">
+        <h3 className="section-label">
           Poker
         </h3>
         <dl className="mt-3 space-y-3">
@@ -117,8 +117,8 @@ export function SessionSettlementSummary({
         </dl>
       </section>
 
-      <section className="border-t border-slate-800 pt-6">
-        <h3 className="text-xs font-black uppercase tracking-[0.16em] text-slate-500">
+      <section className="border-t border-line pt-6">
+        <h3 className="section-label">
           Payments
         </h3>
         <dl className="mt-3 space-y-3">
@@ -134,15 +134,15 @@ export function SessionSettlementSummary({
         </dl>
       </section>
 
-      <section className="border-t border-slate-800 pt-6">
-        <h3 className="text-xs font-black uppercase tracking-[0.16em] text-slate-500">
+      <section className="border-t border-line pt-6">
+        <h3 className="section-label">
           Bank
         </h3>
         <dl className="mt-3 grid grid-cols-2 gap-x-6 gap-y-3">
           {methods.map((method) => (
             <div key={method}>
-              <dt className="text-xs text-slate-500">{methodLabel(method)} balance</dt>
-              <dd className="mt-1 text-lg font-black tabular-nums text-white">
+              <dt className="text-xs text-ink-muted">{methodLabel(method)} balance</dt>
+              <dd className="mt-1 text-lg font-black tabular-nums text-ink">
                 {formatMoney(settlement.bank.balancesByMethod[method])}
               </dd>
             </div>
@@ -150,12 +150,12 @@ export function SessionSettlementSummary({
         </dl>
       </section>
 
-      <details className="group border-t border-slate-800 pt-4">
-        <summary className="flex min-h-11 cursor-pointer list-none items-center justify-between rounded-lg text-sm font-bold text-slate-400 transition hover:text-white focus-visible:outline-2 focus-visible:outline-emerald-400">
+      <details className="group border-t border-line pt-4">
+        <summary className="flex min-h-11 cursor-pointer list-none items-center justify-between rounded-lg text-sm font-bold text-ink-secondary transition hover:text-ink focus-visible:outline-2 focus-visible:outline-ink">
           Detailed Cash/Card breakdown
           <span aria-hidden="true" className="transition-transform group-open:rotate-180">↓</span>
         </summary>
-        <div className="mt-3 grid gap-6 rounded-xl bg-slate-950/50 p-4 sm:grid-cols-2">
+        <div className="glass-surface mt-3 grid gap-6 rounded-xl p-4 sm:grid-cols-2">
           <FlowBreakdown
             title="Received"
             amounts={settlement.bank.receivedByMethod}
@@ -185,15 +185,15 @@ export function SessionSettlementSummary({
 
       {outstanding.length ? (
         <section className="rounded-xl bg-amber-400/[0.07] p-4">
-          <h3 className="text-xs font-black uppercase tracking-[0.16em] text-amber-200">
+          <h3 className="text-xs font-black uppercase tracking-[0.16em] text-warning">
             Outstanding
           </h3>
           <div className="mt-3 space-y-3">
             {outstanding.map((item) => (
               <div key={item.player} className="flex items-start justify-between gap-4 text-sm">
                 <div>
-                  <p className="font-bold text-white">{item.player}</p>
-                  <p className="mt-1 text-xs text-slate-400">
+                  <p className="font-bold text-ink">{item.player}</p>
+                  <p className="mt-1 text-xs text-ink-secondary">
                     {methods
                       .filter((method) => item.pendingByMethod[method] > 0)
                       .map(
@@ -203,7 +203,7 @@ export function SessionSettlementSummary({
                       .join(' · ')}
                   </p>
                 </div>
-                <p className="font-black tabular-nums text-amber-300">
+                <p className="font-black tabular-nums text-warning">
                   {formatMoney(item.amount)}
                 </p>
               </div>
@@ -211,7 +211,7 @@ export function SessionSettlementSummary({
           </div>
         </section>
       ) : (
-        <p className="text-sm font-bold text-emerald-300">
+        <p className="text-sm font-bold text-ink-secondary">
           No outstanding player payments.
         </p>
       )}
@@ -234,17 +234,17 @@ function SummaryRow({
 }) {
   const color =
     status === 'balanced'
-      ? 'text-emerald-300'
+      ? 'text-positive'
       : status === 'warning'
-        ? 'text-amber-300'
+        ? 'text-warning'
         : status === 'incomplete'
-          ? 'text-slate-400'
-          : 'text-white'
+          ? 'text-ink-secondary'
+          : 'text-ink'
   const statusSuffix =
     status === 'balanced' ? ' ✓' : status === 'warning' ? ' ⚠' : status === 'incomplete' ? ' · incomplete' : ''
   return (
     <div className="flex items-baseline justify-between gap-4">
-      <dt className={prominent ? 'font-bold text-white' : 'text-slate-400'}>{label}</dt>
+      <dt className={prominent ? 'font-bold text-ink' : 'text-ink-secondary'}>{label}</dt>
       <dd className={`${prominent ? 'text-xl font-black' : 'font-bold'} tabular-nums ${color}`}>
         {formatMoney(value)}{suffix}{statusSuffix}
       </dd>
@@ -263,7 +263,7 @@ function FlowBreakdown({
 }) {
   return (
     <div>
-      <h4 className="text-xs font-black uppercase tracking-wider text-slate-500">{title}</h4>
+      <h4 className="text-xs font-black uppercase tracking-wider text-ink-muted">{title}</h4>
       <dl className="mt-2 space-y-2 text-sm">
         {methods.map((method) => (
           <TextRow
@@ -280,8 +280,8 @@ function FlowBreakdown({
 function TextRow({ label, value }: { label: string; value: string }) {
   return (
     <div className="flex justify-between gap-4">
-      <dt className="text-slate-400">{label}</dt>
-      <dd className="font-bold tabular-nums text-white">{value}</dd>
+      <dt className="text-ink-secondary">{label}</dt>
+      <dd className="font-bold tabular-nums text-ink">{value}</dd>
     </div>
   )
 }

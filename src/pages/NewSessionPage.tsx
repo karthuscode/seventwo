@@ -58,8 +58,8 @@ export function NewSessionPage() {
   }
 
   return (
-    <div className="space-y-7">
-      <Link to="/" className="text-sm font-bold text-slate-400 hover:text-white">
+    <div className="section-enter space-y-9">
+      <Link to="/" className="text-sm font-bold text-ink-secondary transition hover:text-ink">
         ← Dashboard
       </Link>
       <PageHeader
@@ -69,8 +69,8 @@ export function NewSessionPage() {
       />
 
       <form onSubmit={handleSubmit} className="grid gap-6 lg:grid-cols-[1fr_1.15fr]">
-        <section className="space-y-5 rounded-2xl border border-slate-800 bg-slate-900 p-5 sm:p-6">
-          <h2 className="font-bold text-white">Session details</h2>
+        <section className="glass-surface space-y-5 rounded-2xl p-5 sm:p-6">
+          <h2 className="font-bold text-ink">Session details</h2>
           <label className="block">
             <span className="label">Session name</span>
             <input
@@ -116,9 +116,9 @@ export function NewSessionPage() {
               />
             </label>
           </div>
-          <div className="rounded-xl bg-slate-950/70 p-4 text-center">
-            <p className="text-xs uppercase tracking-wider text-slate-500">Conversion</p>
-            <p className="mt-1 text-lg font-bold text-white">
+          <div className="rounded-xl border border-line bg-black/20 p-4 text-center">
+            <p className="text-xs uppercase tracking-wider text-ink-muted">Conversion</p>
+            <p className="mt-1 text-lg font-bold text-ink">
               {buyInAmount || 0} RON = {chipsPerBuyIn || 0} chips
             </p>
           </div>
@@ -156,11 +156,11 @@ export function NewSessionPage() {
           </fieldset>
         </section>
 
-        <section className="rounded-2xl border border-slate-800 bg-slate-900 p-5 sm:p-6">
+        <section className="glass-surface rounded-2xl p-5 sm:p-6">
           <div className="flex items-center justify-between gap-4">
             <div>
-              <h2 className="font-bold text-white">Players</h2>
-              <p className="mt-1 text-xs text-slate-500">
+              <h2 className="font-bold text-ink">Players</h2>
+              <p className="mt-1 text-xs text-ink-muted">
                 {selectedPlayerIds.length} selected
               </p>
             </div>
@@ -176,16 +176,16 @@ export function NewSessionPage() {
                 .map((player) => (
                   <label
                     key={player.id}
-                    className={`flex min-h-14 cursor-pointer items-center justify-between rounded-xl border px-4 transition ${
+                    className={`flex min-h-14 cursor-pointer items-center justify-between rounded-xl px-4 transition ${
                       selectedPlayerIds.includes(player.id)
-                        ? 'border-emerald-400/40 bg-emerald-400/10'
-                        : 'border-slate-800 bg-slate-950/40 hover:border-slate-700'
+                        ? 'border border-white/10 bg-white/10 text-ink shadow-[inset_0_1px_0_rgba(255,255,255,0.08)]'
+                        : 'border border-transparent bg-black/20 text-ink-secondary hover:border-line-strong hover:bg-white/[0.045]'
                     }`}
                   >
-                    <span className="font-semibold text-white">{player.nickname}</span>
+                    <span className="min-w-0 break-words pr-3 font-semibold text-ink">{player.nickname}</span>
                     <input
                       type="checkbox"
-                      className="size-5 accent-emerald-400"
+                      className="size-5 accent-white"
                       checked={selectedPlayerIds.includes(player.id)}
                       onChange={() => togglePlayer(player.id)}
                     />
@@ -195,14 +195,14 @@ export function NewSessionPage() {
               <button
                 type="button"
                 onClick={() => setShowAddPlayer(true)}
-                className="w-full rounded-xl border border-dashed border-slate-700 px-4 py-8 text-sm text-slate-400 hover:border-emerald-400/40 hover:text-emerald-300"
+                className="glass-interactive w-full rounded-xl px-4 py-8 text-sm text-ink-secondary hover:text-ink"
               >
                 Add your first player
               </button>
             )}
           </div>
 
-          <p className="mt-5 text-xs leading-5 text-slate-500">
+          <p className="mt-5 text-xs leading-5 text-ink-muted">
             Each selected player starts with one {paymentMethod.toLowerCase()} buy-in marked {paymentStatus.toLowerCase()}. You can correct it from the active session.
           </p>
           {error ? <p className="mt-3 text-sm text-red-300">{error}</p> : null}

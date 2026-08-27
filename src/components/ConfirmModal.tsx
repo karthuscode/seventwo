@@ -22,7 +22,7 @@ export function ConfirmModal({
 }: ConfirmModalProps) {
   return (
     <Modal title={title} onClose={onClose}>
-      <p className="text-sm leading-6 text-slate-300">{description}</p>
+      <p className="text-sm leading-6 text-ink-secondary">{description}</p>
       <div className="mt-6 grid grid-cols-2 gap-3">
         <Button type="button" variant="secondary" onClick={onClose} disabled={isSaving}>
           Cancel
