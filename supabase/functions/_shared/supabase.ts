@@ -12,6 +12,7 @@ interface FunctionContext {
 
 export async function requireFunctionContext(
   request: Request,
+  options: { registeredOnly?: boolean } = {},
 ): Promise<FunctionContext> {
   const authorization = request.headers.get('Authorization')
   if (!authorization?.startsWith('Bearer ')) {
@@ -30,8 +31,8 @@ export async function requireFunctionContext(
   if (error || !data.user) {
     throw new RequestError(401, 'Your SevenTwo session has expired.')
   }
-  if (!data.user.is_anonymous) {
-    throw new RequestError(403, 'An anonymous SevenTwo session is required.')
+  if (options.registeredOnly && data.user.is_anonymous) {
+    throw new RequestError(403, 'Create or sign in to a SevenTwo account first.')
   }
 
   const admin = createClient(supabaseUrl, serviceRoleKey, {

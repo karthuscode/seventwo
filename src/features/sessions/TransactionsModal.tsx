@@ -18,6 +18,7 @@ interface TransactionsModalProps {
   transactions: Transaction[]
   paymentOffsets?: PaymentOffset[]
   onClose: () => void
+  readOnly?: boolean
 }
 
 interface TransactionDraft {
@@ -32,6 +33,7 @@ export function TransactionsModal({
   transactions,
   paymentOffsets = [],
   onClose,
+  readOnly = false,
 }: TransactionsModalProps) {
   const { updateTransaction } = useAppData()
   const [editingId, setEditingId] = useState<string | null>(null)
@@ -228,7 +230,7 @@ export function TransactionsModal({
                 </p>
               </div>
               <div className="mt-3 flex flex-wrap gap-2 border-t border-line/70 pt-3">
-                {transaction.paymentStatus === 'PENDING' &&
+                {!readOnly && transaction.paymentStatus === 'PENDING' &&
                 toMinorUnits(outstanding) > 0 ? (
                   <Button
                     onClick={() => void markReceived(transaction)}
@@ -237,9 +239,9 @@ export function TransactionsModal({
                     {savingId === transaction.id ? 'Updating…' : 'Mark received'}
                   </Button>
                 ) : null}
-                <Button variant="ghost" onClick={() => startEditing(transaction)}>
+                {!readOnly ? <Button variant="ghost" onClick={() => startEditing(transaction)}>
                   Correct details
-                </Button>
+                </Button> : null}
               </div>
             </div>
           )

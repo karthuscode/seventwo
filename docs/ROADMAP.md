@@ -34,23 +34,34 @@
 - Digest-hiding database privileges and preserved membership-based RLS
 - Multi-workspace local demo simulation
 
-## Phase 3 — Cash-out and settlement
+## Phase 3 — Cash-out and settlement ✅
 
 - Record each player's remaining chip count
 - Convert chips to RON using the session configuration
 - Calculate player profit/loss
 - Reconcile cash-outs with committed and received funds
 - Surface discrepancies before finishing a session
-- Save a final settlement snapshot
+- Preserve complete cash-out, offset, payout, and settlement inputs for historical summaries
 
-## Phase 4 — Blind timer
+## Phase 4 — Accounts, roles, invites, and planning (local implementation complete)
+
+- Optional email magic-link registration with anonymous-access preservation
+- OWNER / HOST / PLAYER permissions and linked canonical Player identities
+- Unified invite-code onboarding for Host access and Player invitations
+- Secure Player invites for exact historical-profile linking or new registered-Player creation
+- Visible account identity, active-workspace role, role-aware onboarding, and profile states
+- Concrete timeslot Plans, registered self-voting, and Host guest-proxy voting
+- Attendance viability, deterministic best option, confirmation, primary host, and Plan → Session conversion
+- RLS policies that prevent PLAYER financial administration and cross-workspace access
+
+## Phase 5 — Blind timer
 
 - Configurable small-blind and big-blind levels
 - Large table-readable timer
 - Pause, resume, next level, and optional breaks
 - Timer settings isolated from financial records
 
-## Phase 5 — Statistics and UX improvements
+## Phase 6 — Statistics and UX improvements
 
 - Deeper player and session statistics derived from history
 - Useful trends, filters, and search
@@ -58,12 +69,11 @@
 - Data export and backup options
 - Accessibility and table-side ergonomics refinement
 
-## Phase 6 — Optional individual users
+## Phase 7 — Optional collaboration expansion
 
-- Optionally upgrade anonymous identities to recoverable individual accounts
-- Invite additional OWNER or HOST workspace members
-- Define host and viewer permissions
-- Allow selected participants to join from their own phones
+- Optional Google OAuth identity linking
+- Additional owner-transfer and member-removal administration
+- Optional co-hosting and richer planning controls
 - Add safe real-time synchronization where it improves the workflow
 
 ## Architectural guardrails

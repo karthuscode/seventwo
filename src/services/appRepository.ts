@@ -3,10 +3,16 @@ import type {
   Player,
   PayoutAllocation,
   PaymentOffset,
+  Plan,
+  PlanOption,
+  PlanVote,
+  PlayerInviteResult,
+  JoinInviteResult,
   Session,
   SessionPlayer,
   Transaction,
   Workspace,
+  WorkspaceRole,
   WorkspaceAccessResult,
 } from '../types/domain'
 
@@ -27,17 +33,26 @@ export interface CashOutRecords {
   paymentOffsets: PaymentOffset[]
 }
 
+export interface PlanRecords {
+  plan: Plan
+  options: PlanOption[]
+}
+
 export interface AppRepository {
   readonly kind: 'local' | 'supabase'
   listWorkspaces(): Promise<Workspace[]>
   createWorkspace(name: string): Promise<WorkspaceAccessResult>
   joinWorkspace(code: string): Promise<Workspace>
   rotateWorkspaceCode(workspaceId: string): Promise<string>
+  createPlayerInvite(workspaceId: string, playerId?: string): Promise<PlayerInviteResult>
+  redeemPlayerInvite(code: string): Promise<Workspace>
+  joinWithInviteCode(code: string, nickname?: string): Promise<JoinInviteResult>
   load(workspaceId: string): Promise<AppData>
   addPlayer(player: Player): Promise<void>
   updatePlayer(player: Player): Promise<void>
   deletePlayer(playerId: string, workspaceId: string): Promise<void>
   createSession(records: SessionRecords): Promise<void>
+  createSessionFromPlan(records: SessionRecords): Promise<void>
   updateSession(session: Session): Promise<void>
   deleteSession(sessionId: string, workspaceId: string): Promise<void>
   addSessionPlayer(records: SessionPlayerRecords): Promise<void>
@@ -45,6 +60,14 @@ export interface AppRepository {
   saveCashOut(records: CashOutRecords): Promise<void>
   addTransaction(transaction: Transaction): Promise<void>
   updateTransaction(transaction: Transaction): Promise<void>
+  createPlan(records: PlanRecords): Promise<void>
+  savePlanVote(vote: PlanVote): Promise<void>
+  confirmPlan(plan: Plan): Promise<void>
+  updateWorkspaceMemberRole(
+    workspaceId: string,
+    userId: string,
+    role: Exclude<WorkspaceRole, 'OWNER'>,
+  ): Promise<void>
   importData(workspaceId: string, data: AppData): Promise<void>
 }
 
@@ -56,6 +79,10 @@ export function emptyAppData(): AppData {
     transactions: [],
     payoutAllocations: [],
     paymentOffsets: [],
+    workspaceMembers: [],
+    plans: [],
+    planOptions: [],
+    planVotes: [],
   }
 }
 

@@ -1,58 +1,37 @@
 # SevenTwo
 
-SevenTwo is a mobile-first PWA for managing live Texas Hold'em home-game sessions. It gives trusted hosts a shared view of recurring players, sessions, buy-ins, rebuys, payment status, the common bank, history, and basic player statistics.
+SevenTwo is a mobile-first PWA for running live Texas Hold'em home games: poker groups, players, game-night planning, buy-ins, rebuys, payments, cash-outs, bank reconciliation, history, and focused player statistics. It never tracks cards, hands, pots, or poker strategy.
 
-SevenTwo does **not** track cards, hands, individual pots, hand winners, or poker strategy.
+## Current scope
 
-## Current functionality
-
-- Independent poker-group workspaces with OWNER and HOST roles
-- Invisible Supabase Anonymous Auth—no registration, email, username, or password
-- Secure six-digit workspace creation, joining, switching, and OWNER-only code rotation
-- Reusable player list and player detail summaries
-- Session creation with custom RON ↔ chip configuration
-- Separate buy-in and rebuy transaction records
-- Cash, Card, and Other payment methods
-- Received and Pending payment tracking
-- Committed, received, and pending bank calculations
-- One-tap pending-payment confirmation and in-place transaction correction
-- Active-session, history, and session-detail views
-- Workspace-scoped Supabase persistence protected by RLS
-- Installable responsive PWA
-- Isolated local demo workspaces when Supabase is not configured
-- Non-destructive Phase 1 browser-data migration/import support
-
-Cash-out settlement and the blind timer remain planned features.
+- Independent workspaces with `OWNER`, `HOST`, and registered `PLAYER` roles
+- Optional email magic-link accounts layered onto invisible Supabase Anonymous Auth
+- One unified invite-code entry for secure Host access and single-use Player invitations
+- Player invitations can link existing poker history or create a new registered Player after nickname selection
+- Concrete date/time Plans, registered-player votes, Host proxy votes for guests, turnout indicators, confirmation, and Plan → Session conversion
+- Reusable players; safe rename, archive, restore, and deletion rules
+- Sessions with configurable RON ↔ chips, buy-ins, rebuys, Cash/Card receipt state, cash-out, pending offsets, split payouts, and settlement
+- Workspace-scoped Supabase persistence with RLS, plus coherent local/demo persistence
+- Responsive installable PWA
 
 ## Architecture
 
 ```text
 Device
   ↓
-Supabase Anonymous Auth (auth.uid())
+Supabase Auth (anonymous or registered)
   ↓
-workspace_members (OWNER or HOST)
+workspace_members (OWNER / HOST / PLAYER)
   ↓
 RLS-protected workspace data
-  ↓
-Players / Sessions / SessionPlayers / Transactions
+  ├── canonical poker players (optionally linked to auth users)
+  ├── Plans / times / votes
+  └── Sessions / participants / financial ledger / settlement
 ```
 
-Poker `Player` records are participants such as Bendi or Csani. They are not authenticated users. One anonymous Supabase identity may belong to several workspaces, while each workspace remains an independent poker group.
-
-React uses one asynchronous `AppRepository` selected at startup. A configured deployment uses `SupabaseRepository`; an unconfigured build uses `LocalStorageRepository`. Pages do not call Supabase directly, and bank/statistics calculations remain pure business logic.
-
-## Tech stack
-
-- React 19 and strict TypeScript
-- Vite and Tailwind CSS
-- React Router
-- Supabase Auth, PostgreSQL, RLS, and Edge Functions
-- Vite PWA plugin / Workbox
+Poker `Player` records remain the canonical identities. Email registration alone never creates one. A Player invite either links a registered user to an exact existing row—preserving every historical session—or creates a new registered Player after the invited user chooses a unique nickname. Pages use the asynchronous repository boundary; persistence and settlement formulas stay outside UI components.
 
 ## Local setup
-
-Requirements: a recent Node.js LTS release and npm.
 
 ```bash
 npm install
@@ -60,115 +39,71 @@ cp .env.example .env.local
 npm run dev
 ```
 
-Leave the Supabase values absent to use local demo mode. Local workspace codes are only a UI simulation: all records and codes stay in that browser and cannot synchronize across devices.
+Leave the Supabase variables empty for local/demo mode. Local codes and accounts do not sync across devices.
 
-## Frontend environment variables
+Frontend variables (public client settings only):
 
 ```dotenv
 VITE_SUPABASE_URL=https://your-project.supabase.co
 VITE_SUPABASE_ANON_KEY=your-publishable-or-anon-key
 ```
 
-These are public client settings. Do not put the workspace-code pepper, a database password, or a Supabase `service_role`/secret key in Vite variables. `.env` variants are ignored by Git; only `.env.example` is tracked.
+Never put the database password, service-role key, Host/Player code, or `WORKSPACE_CODE_PEPPER` in a frontend variable or Git.
 
 ## Supabase setup
 
-### 1. Enable Anonymous Auth
+1. In Authentication → Providers, enable Anonymous Sign-Ins and Email. Configure magic-link email delivery.
+2. Add every deployed/local origin that may receive an email link to Authentication → URL Configuration, including the production Site URL and redirect URLs such as `http://localhost:5173/**`.
+3. Apply migrations in filename order (`supabase db push` when using a linked CLI project), including:
+   - `20260901000000_phase4_player_role.sql`
+   - `20260901001000_phase4_accounts_planning.sql`
+   - `20260901002000_phase4_flexible_player_invites.sql`
+4. Keep the existing server-side pepper, or set a new project secret only for a fresh database:
 
-In **Supabase Dashboard → Authentication → Providers**, enable **Anonymous Sign-Ins**. Public email/password sign-up is not used. If SevenTwo becomes broadly public, add CAPTCHA support before enabling CAPTCHA in Supabase so the frontend can submit the required token.
+   ```bash
+   supabase secrets set WORKSPACE_CODE_PEPPER=replace-with-at-least-32-random-characters
+   ```
 
-The browser calls `signInAnonymously()` once on a new device and Supabase persists that session locally. Clearing site data loses that device identity; access can be restored only by joining again with the current workspace code. Anonymous users should not be automatically deleted while they still need workspace membership.
+   Changing this value invalidates existing Host-code digests, so production must keep its current pepper.
+5. Deploy the functions (all authenticate the bearer session themselves):
 
-### 2. Apply migrations
+   ```bash
+   supabase functions deploy create-workspace --no-verify-jwt
+   supabase functions deploy join-workspace --no-verify-jwt
+   supabase functions deploy rotate-workspace-code --no-verify-jwt
+   supabase functions deploy create-player-invite --no-verify-jwt
+   supabase functions deploy redeem-player-invite --no-verify-jwt
+   supabase functions deploy redeem-invite-code --no-verify-jwt
+   supabase functions deploy transfer-anonymous-access --no-verify-jwt
+   ```
+6. Keep the two public `VITE_SUPABASE_*` variables configured in Cloudflare Pages. Phase 4 adds no new frontend secret.
 
-Apply the migrations in filename order with the Supabase CLI or SQL editor:
+Google sign-in is intentionally not enabled in this pass. It can be added later through Supabase provider configuration and manual identity linking without changing the workspace/player model.
 
-1. `supabase/migrations/20260826000000_initial_schema.sql`
-2. `supabase/migrations/20260827000000_shared_host_workspaces.sql`
-3. `supabase/migrations/20260828000000_workspace_access_codes.sql`
+## Identity and invite behavior
 
-With a linked CLI project, this is normally:
+- A guest Host may remain anonymous indefinitely.
+- “Keep this access with an account” upgrades the anonymous Supabase user in place by confirming an email, retaining the same `auth.uid()` and memberships.
+- Signing into an existing account first creates a short-lived, random server-side transfer token. After the magic link completes, memberships and linked poker identity are transferred transactionally; conflicts stop for manual review rather than silently losing data.
+- The app presents one six-digit invite field; the server securely determines whether the digest represents Host access or a Player invitation.
+- Host codes remain HMAC-protected workspace access. Redeeming one upgrades `PLAYER` to `HOST` but never downgrades `OWNER`.
+- Player codes are separately HMAC-protected, 14-day, single-use invitations. Redemption requires a registered account and either links one exact unclaimed Player row or asks for a unique nickname before atomically creating a new Player.
+- A nickname collision never silently claims or duplicates a historical Player. The owner must issue a code tied to that exact unregistered profile, or the invited user must choose another nickname.
+- Eight failed code attempts within the existing 15-minute window trigger a temporary cooldown.
 
-```bash
-supabase db push
-```
+## Security
 
-The Phase 2.5 migration adds a hidden, unique access-code digest, a server-only rate-limit ledger, and column privileges that prevent ordinary clients from selecting the digest. Existing workspaces and poker records are not deleted.
-
-### 3. Set the Edge Function secret
-
-Generate a strong random pepper locally—for example, `openssl rand -hex 32`—then store the output directly as a Supabase project secret:
-
-```bash
-supabase secrets set WORKSPACE_CODE_PEPPER=replace-with-generated-value
-```
-
-Use at least 32 characters. Never place the real value in source control, frontend configuration, database rows, screenshots, or logs. The functions also use Supabase-provided runtime variables for the project URL, public/anon key, and service-role key; the service-role value never reaches the browser.
-
-### 4. Deploy Edge Functions
-
-```bash
-supabase functions deploy create-workspace --no-verify-jwt
-supabase functions deploy join-workspace --no-verify-jwt
-supabase functions deploy rotate-workspace-code --no-verify-jwt
-```
-
-Gateway JWT verification is deliberately disabled because each function validates the bearer token itself with `auth.getUser()`, which supports current publishable-key behavior. Requests without a valid Supabase Auth session are rejected.
-
-### 5. Configure and host the frontend
-
-Set the two `VITE_SUPABASE_*` values in `.env.local` and in the hosting build environment, then rebuild. Host the production files over HTTPS for PWA installation. If using a private preview host, change its access settings before expecting trusted friends to open SevenTwo from their devices.
-
-## Workspace-code security
-
-- Edge Functions generate exactly six digits with Web Crypto; the frontend never uses `Math.random()` for real codes.
-- PostgreSQL stores only `HMAC-SHA-256(code, WORKSPACE_CODE_PEPPER)`, not the plaintext code.
-- The digest is unique and indexed for lookup, hidden from normal API column grants, and never returned by an Edge Function.
-- Create makes the caller OWNER; join adds the caller as HOST without downgrading an existing OWNER.
-- Rotation replaces the digest immediately, so the previous code can no longer create memberships. Existing members keep access.
-- Plaintext is shown only after creation or rotation. There is intentionally no code-recovery feature.
-- Join applies a per-anonymous-user 15-minute window and temporary block after eight failures.
-
-A six-digit code has limited entropy. The lightweight throttle is suitable for this small private MVP, but it is not a substitute for CAPTCHA, network-level rate limiting, or longer invitations if SevenTwo becomes public at scale.
-
-## RLS and data isolation
-
-Anonymous Supabase users receive the normal `authenticated` database role, but authentication alone grants no workspace data. Every domain-table policy checks that `auth.uid()` exists in `workspace_members` for the row's `workspace_id`. Unauthenticated visitors have no policies, and membership in one workspace does not grant access to another.
-
-Workspace creation, code lookup, join, and rotation run in focused Edge Functions. Ordinary player/session/transaction CRUD continues through the public client and RLS. The browser never uses `service_role`.
-
-## Existing Phase 2 Supabase data
-
-The migration preserves the previous workspace, records, and shared-host membership. The new app intentionally does not reuse the old email/password identity. To give a new anonymous device access to that legacy workspace:
-
-1. Open SevenTwo once so the anonymous Auth user is created.
-2. Find that anonymous user's UUID in **Authentication → Users**.
-3. Find the existing workspace UUID in the Table Editor.
-4. In the SQL editor, add that exact identity as OWNER:
-
-```sql
-insert into public.workspace_members (workspace_id, user_id, role)
-values ('workspace-uuid', 'anonymous-user-uuid', 'OWNER')
-on conflict (workspace_id, user_id)
-do update set role = excluded.role;
-```
-
-Refresh SevenTwo, open the workspace switcher, and choose **Regenerate workspace code**. Future devices can then join normally. Keep the old membership until the migration is verified.
-
-Phase 1 localStorage data is also left untouched. When an authenticated Supabase workspace is empty, SevenTwo offers to import that browser's legacy data into the selected workspace.
-
-## PWA installation
-
-Build and host SevenTwo over HTTPS, then use the browser's **Install app** or **Add to Home Screen** action. The manifest uses standalone display and the service worker precaches the application shell.
+Authentication alone grants no workspace access. RLS checks membership for every workspace row. OWNER/HOST may administer sessions and Plans; PLAYER may read relevant Plans, vote only for its linked Player, and read its own poker/session data. Player linking, code lookup, and account transfer use server-only Edge Functions/RPCs. The browser never receives invite digests, the HMAC pepper, or the service-role key.
 
 ## Commands
 
 ```bash
-npm run dev        # Start local development
-npm run lint       # Run Oxlint
-npm run typecheck  # Run strict TypeScript checks
-npm run build      # Typecheck and create the production PWA
-npm run preview    # Preview the production build locally
+npm run dev
+npm run lint
+npm run typecheck
+npm run test:settlement
+npm run test:planning
+npm run build
 ```
 
-See [`docs/ROADMAP.md`](docs/ROADMAP.md) for the incremental development plan.
+See [docs/ROADMAP.md](docs/ROADMAP.md).

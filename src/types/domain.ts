@@ -10,7 +10,26 @@ export type PaymentMethod = 'CASH' | 'CARD' | 'OTHER'
 
 export type PaymentStatus = 'RECEIVED' | 'PENDING'
 
-export type WorkspaceRole = 'OWNER' | 'HOST'
+export type WorkspaceRole = 'OWNER' | 'HOST' | 'PLAYER'
+
+export type PlanStatus = 'DRAFT' | 'VOTING' | 'CONFIRMED' | 'SESSION_CREATED' | 'CANCELLED'
+
+export type PlanVoteResponse = 'AVAILABLE' | 'MAYBE' | 'UNAVAILABLE'
+
+export interface UserProfile {
+  userId: string
+  displayName: string
+  createdAt: string
+  updatedAt: string
+}
+
+export interface WorkspaceMember {
+  workspaceId: string
+  userId: string
+  role: WorkspaceRole
+  displayName: string | null
+  createdAt: string
+}
 
 export interface Workspace {
   id: string
@@ -30,6 +49,7 @@ export interface Player {
   nickname: string
   createdAt: string
   archivedAt: string | null
+  userId: string | null
 }
 
 export interface Session {
@@ -43,7 +63,53 @@ export interface Session {
   currency: Currency
   createdAt: string
   finishedAt: string | null
+  hostUserId: string | null
+  planId: string | null
+  startsAt: string | null
 }
+
+export interface Plan {
+  id: string
+  workspaceId: string
+  title: string
+  status: PlanStatus
+  createdByUserId: string
+  hostUserId: string | null
+  confirmedOptionId: string | null
+  createdAt: string
+  updatedAt: string
+}
+
+export interface PlanOption {
+  id: string
+  workspaceId: string
+  planId: string
+  startsAt: string
+  createdAt: string
+}
+
+export interface PlanVote {
+  id: string
+  workspaceId: string
+  planId: string
+  optionId: string
+  playerId: string
+  response: PlanVoteResponse
+  recordedByUserId: string
+  updatedAt: string
+}
+
+export interface PlayerInviteResult {
+  workspaceId: string
+  playerId: string | null
+  playerNickname: string | null
+  inviteCode: string
+  expiresAt: string
+}
+
+export type JoinInviteResult =
+  | { status: 'JOINED'; workspace: Workspace; playerId?: string }
+  | { status: 'NICKNAME_REQUIRED'; workspaceName: string }
 
 export interface SessionPlayer {
   id: string
@@ -100,6 +166,10 @@ export interface AppData {
   transactions: Transaction[]
   payoutAllocations: PayoutAllocation[]
   paymentOffsets: PaymentOffset[]
+  workspaceMembers: WorkspaceMember[]
+  plans: Plan[]
+  planOptions: PlanOption[]
+  planVotes: PlanVote[]
 }
 
 export interface NewSessionInput {
@@ -110,6 +180,18 @@ export interface NewSessionInput {
   playerIds: string[]
   paymentMethod: PaymentMethod
   paymentStatus: PaymentStatus
+  hostUserId?: string | null
+  planId?: string | null
+}
+
+export interface NewPlanInput {
+  title: string
+  startsAt: string[]
+  hostUserId: string | null
+}
+
+export interface CreateSessionFromPlanInput extends NewSessionInput {
+  planId: string
 }
 
 export interface CashOutInput {

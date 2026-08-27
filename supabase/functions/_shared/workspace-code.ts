@@ -17,6 +17,10 @@ export function generateWorkspaceCode(): string {
 }
 
 export async function digestWorkspaceCode(code: string): Promise<string> {
+  return digestSecret(code)
+}
+
+export async function digestSecret(value: string): Promise<string> {
   const pepper = Deno.env.get('WORKSPACE_CODE_PEPPER')
   if (!pepper || pepper.length < 32) {
     throw new Error('WORKSPACE_CODE_PEPPER must contain at least 32 characters.')
@@ -30,10 +34,24 @@ export async function digestWorkspaceCode(code: string): Promise<string> {
     false,
     ['sign'],
   )
-  const digest = await crypto.subtle.sign('HMAC', key, encoder.encode(code))
+  const digest = await crypto.subtle.sign('HMAC', key, encoder.encode(value))
   return Array.from(new Uint8Array(digest), (byte) =>
     byte.toString(16).padStart(2, '0'),
   ).join('')
+}
+
+export async function digestPlayerInviteCode(code: string): Promise<string> {
+  return digestSecret(`PLAYER_INVITE:${code}`)
+}
+
+export async function digestAccountTransferToken(token: string): Promise<string> {
+  return digestSecret(`ACCOUNT_TRANSFER:${token}`)
+}
+
+export function generateTransferToken(): string {
+  const bytes = new Uint8Array(32)
+  crypto.getRandomValues(bytes)
+  return Array.from(bytes, (byte) => byte.toString(16).padStart(2, '0')).join('')
 }
 
 export async function generateUniqueWorkspaceCode(

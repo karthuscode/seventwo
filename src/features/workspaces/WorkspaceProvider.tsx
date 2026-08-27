@@ -21,7 +21,7 @@ import {
 } from './WorkspaceContext'
 
 export function WorkspaceProvider({ children }: PropsWithChildren) {
-  const { mode } = useAuth()
+  const { mode, user } = useAuth()
   const repository = useMemo<AppRepository>(() => {
     if (mode === 'supabase' && supabase) return new SupabaseRepository(supabase)
     return new LocalStorageRepository()
@@ -32,6 +32,8 @@ export function WorkspaceProvider({ children }: PropsWithChildren) {
   )
   const [revealedCode, setRevealedCode] =
     useState<RevealedWorkspaceCode | null>(null)
+  const [revealedPlayerInvite, setRevealedPlayerInvite] = useState<WorkspaceContextValue['revealedPlayerInvite']>(null)
+  const [joinNotice, setJoinNotice] = useState<WorkspaceContextValue['joinNotice']>(null)
   const [isLoading, setIsLoading] = useState(true)
   const [isSaving, setIsSaving] = useState(false)
   const [error, setError] = useState<string | null>(null)
@@ -64,7 +66,7 @@ export function WorkspaceProvider({ children }: PropsWithChildren) {
     // Workspace membership is loaded from the active external repository.
     // oxlint-disable-next-line react/set-state-in-effect
     void refreshWorkspaces()
-  }, [refreshWorkspaces])
+  }, [refreshWorkspaces, user?.id])
 
   function selectWorkspace(workspaceId: string | null) {
     setSelectedWorkspaceId(workspaceId)
@@ -107,6 +109,7 @@ export function WorkspaceProvider({ children }: PropsWithChildren) {
     try {
       const workspace = await repository.joinWorkspace(normalizedCode)
       setWorkspaces((current) => upsertWorkspace(current, workspace))
+      setJoinNotice({ workspaceName: workspace.name, role: workspace.role })
       selectWorkspace(workspace.id)
     } catch (caughtError) {
       setError(toMessage(caughtError))
@@ -138,6 +141,60 @@ export function WorkspaceProvider({ children }: PropsWithChildren) {
     }
   }
 
+  async function createPlayerInvite(workspaceId: string, playerId?: string) {
+    setIsSaving(true)
+    setError(null)
+    try {
+      setRevealedPlayerInvite(await repository.createPlayerInvite(workspaceId, playerId))
+    } catch (caughtError) {
+      setError(toMessage(caughtError))
+      throw caughtError
+    } finally {
+      setIsSaving(false)
+    }
+  }
+
+  async function redeemPlayerInvite(code: string) {
+    const normalizedCode = code.replace(/\s/g, '')
+    if (!/^\d{6}$/.test(normalizedCode)) throw new Error('Enter exactly six digits.')
+    setIsSaving(true)
+    setError(null)
+    try {
+      const workspace = await repository.redeemPlayerInvite(normalizedCode)
+      setWorkspaces((current) => upsertWorkspace(current, workspace))
+      selectWorkspace(workspace.id)
+    } catch (caughtError) {
+      setError(toMessage(caughtError))
+      throw caughtError
+    } finally {
+      setIsSaving(false)
+    }
+  }
+
+  async function joinWithInviteCode(code: string, nickname?: string) {
+    const normalizedCode = code.replace(/\s/g, '')
+    if (!/^\d{6}$/.test(normalizedCode)) throw new Error('Enter exactly six digits.')
+    setIsSaving(true)
+    setError(null)
+    try {
+      const result = await repository.joinWithInviteCode(normalizedCode, nickname)
+      if (result.status === 'JOINED') {
+        setWorkspaces((current) => upsertWorkspace(current, result.workspace))
+        setJoinNotice({
+          workspaceName: result.workspace.name,
+          role: result.workspace.role,
+        })
+        selectWorkspace(result.workspace.id)
+      }
+      return result
+    } catch (caughtError) {
+      setError(toMessage(caughtError))
+      throw caughtError
+    } finally {
+      setIsSaving(false)
+    }
+  }
+
   const selectedWorkspace =
     workspaces.find((workspace) => workspace.id === selectedWorkspaceId) ?? null
 
@@ -146,6 +203,8 @@ export function WorkspaceProvider({ children }: PropsWithChildren) {
     workspaces,
     selectedWorkspace,
     revealedCode,
+    revealedPlayerInvite,
+    joinNotice,
     isLoading,
     isSaving,
     error,
@@ -153,7 +212,12 @@ export function WorkspaceProvider({ children }: PropsWithChildren) {
     joinWorkspace,
     selectWorkspace,
     rotateWorkspaceCode,
+    createPlayerInvite,
+    redeemPlayerInvite,
+    joinWithInviteCode,
     clearRevealedCode: () => setRevealedCode(null),
+    clearRevealedPlayerInvite: () => setRevealedPlayerInvite(null),
+    clearJoinNotice: () => setJoinNotice(null),
     clearError: () => setError(null),
     refreshWorkspaces,
   }

@@ -9,25 +9,33 @@ import {
 import type {
   AppData,
   PaymentOffset,
+  Plan,
+  PlanVote,
   Player,
+  PlayerInviteResult,
+  JoinInviteResult,
   PayoutAllocation,
   Session,
   SessionPlayer,
   Transaction,
   Workspace,
   WorkspaceAccessResult,
+  WorkspaceRole,
 } from '../types/domain'
+import type { PlanRecords } from './appRepository'
 
 const LEGACY_STORAGE_KEY = 'poker-session-manager-data-v1'
 const WORKSPACES_STORAGE_KEY = 'seventwo-local-workspaces-v2'
 export const SELECTED_WORKSPACE_KEY = 'seventwo-selected-workspace-id'
 export const LOCAL_WORKSPACE_ID = '00000000-0000-0000-0000-000000000001'
+export const LOCAL_USER_ID = '00000000-0000-0000-0000-000000000072'
 
 interface LocalWorkspaceState {
   version: 2
   workspaces: Workspace[]
   dataByWorkspace: Record<string, AppData>
   accessCodes: Record<string, string>
+  playerInviteCodes: Record<string, { workspaceId: string; playerId: string | null }>
 }
 
 export class LocalStorageRepository implements AppRepository {
@@ -51,9 +59,19 @@ export class LocalStorageRepository implements AppRepository {
       workspaces: [...state.workspaces, workspace],
       dataByWorkspace: {
         ...state.dataByWorkspace,
-        [workspace.id]: emptyAppData(),
+        [workspace.id]: {
+          ...emptyAppData(),
+          workspaceMembers: [{
+            workspaceId: workspace.id,
+            userId: LOCAL_USER_ID,
+            role: 'OWNER',
+            displayName: 'Local host',
+            createdAt: workspace.createdAt,
+          }],
+        },
       },
       accessCodes: { ...state.accessCodes, [workspace.id]: accessCode },
+      playerInviteCodes: state.playerInviteCodes,
     })
     return { workspace, accessCode }
   }
@@ -83,6 +101,132 @@ export class LocalStorageRepository implements AppRepository {
       accessCodes: { ...state.accessCodes, [workspaceId]: accessCode },
     })
     return accessCode
+  }
+
+  async createPlayerInvite(
+    workspaceId: string,
+    playerId?: string,
+  ): Promise<PlayerInviteResult> {
+    const state = this.readState()
+    const workspace = state.workspaces.find((item) => item.id === workspaceId)
+    const player = state.dataByWorkspace[workspaceId]?.players.find(
+      (item) => item.id === playerId,
+    )
+    if (!workspace || workspace.role !== 'OWNER') {
+      throw new Error('Only the workspace owner can invite a player.')
+    }
+    if (playerId && (!player || player.userId)) {
+      throw new Error('Choose an unlinked player identity.')
+    }
+    const inviteCode = createLocalCode(
+      new Set([...Object.keys(state.playerInviteCodes), ...Object.values(state.accessCodes)]),
+    )
+    const playerInviteCodes = Object.fromEntries(
+      Object.entries(state.playerInviteCodes).filter(
+        ([, item]) => !playerId || item.playerId !== playerId,
+      ),
+    )
+    this.writeState({
+      ...state,
+      playerInviteCodes: {
+        ...playerInviteCodes,
+        [inviteCode]: { workspaceId, playerId: playerId ?? null },
+      },
+    })
+    return {
+      workspaceId,
+      playerId: playerId ?? null,
+      playerNickname: player?.nickname ?? null,
+      inviteCode,
+      expiresAt: new Date(Date.now() + 14 * 24 * 60 * 60 * 1000).toISOString(),
+    }
+  }
+
+  async redeemPlayerInvite(code: string): Promise<Workspace> {
+    const state = this.readState()
+    const invite = state.playerInviteCodes[code]
+    if (!invite) throw new Error('Player invite is invalid or expired.')
+    const workspace = state.workspaces.find((item) => item.id === invite.workspaceId)
+    if (!workspace) throw new Error('Player invite is invalid or expired.')
+    this.writeState({
+      ...state,
+      playerInviteCodes: Object.fromEntries(
+        Object.entries(state.playerInviteCodes).filter(([savedCode]) => savedCode !== code),
+      ),
+    })
+    return workspace
+  }
+
+  async joinWithInviteCode(
+    code: string,
+    nickname?: string,
+  ): Promise<JoinInviteResult> {
+    const state = this.readState()
+    const hostWorkspaceId = Object.entries(state.accessCodes).find(
+      ([, savedCode]) => savedCode === code,
+    )?.[0]
+    if (hostWorkspaceId) {
+      const workspace = state.workspaces.find((item) => item.id === hostWorkspaceId)
+      if (!workspace) throw new Error('Invite code not recognized.')
+      return { status: 'JOINED', workspace }
+    }
+
+    const invite = state.playerInviteCodes[code]
+    const workspace = state.workspaces.find((item) => item.id === invite?.workspaceId)
+    if (!invite || !workspace) throw new Error('Invite code not recognized.')
+    const data = withWorkspaceId(
+      state.dataByWorkspace[workspace.id] ?? emptyAppData(),
+      workspace.id,
+    )
+    const existingLinkedPlayer = data.players.find(
+      (player) => player.userId === LOCAL_USER_ID,
+    )
+    let linkedPlayerId = invite.playerId
+    if (!linkedPlayerId) {
+      const cleanNickname = nickname?.trim() ?? ''
+      if (!cleanNickname) {
+        return { status: 'NICKNAME_REQUIRED', workspaceName: workspace.name }
+      }
+      if (existingLinkedPlayer) {
+        throw new Error('This account already has a player in the workspace.')
+      }
+      const matchingPlayer = data.players.find(
+        (player) => player.nickname.trim().toLocaleLowerCase() === cleanNickname.toLocaleLowerCase(),
+      )
+      if (matchingPlayer) {
+        throw new Error(
+          'A Player with this nickname already exists. Ask the Owner for an invite linked to that profile, or choose a different nickname.',
+        )
+      }
+      linkedPlayerId = crypto.randomUUID()
+      data.players.push({
+        id: linkedPlayerId,
+        workspaceId: workspace.id,
+        nickname: cleanNickname,
+        createdAt: new Date().toISOString(),
+        archivedAt: null,
+        userId: LOCAL_USER_ID,
+      })
+    } else {
+      const invitedPlayer = data.players.find((player) => player.id === linkedPlayerId)
+      if (!invitedPlayer || (invitedPlayer.userId && invitedPlayer.userId !== LOCAL_USER_ID)) {
+        throw new Error('Player invite is invalid or expired.')
+      }
+      if (existingLinkedPlayer && existingLinkedPlayer.id !== linkedPlayerId) {
+        throw new Error('This account already has a player in the workspace.')
+      }
+      data.players = data.players.map((player) =>
+        player.id === linkedPlayerId ? { ...player, userId: LOCAL_USER_ID } : player,
+      )
+    }
+    this.writeState({
+      ...state,
+      dataByWorkspace: { ...state.dataByWorkspace, [workspace.id]: data },
+      playerInviteCodes: Object.fromEntries(
+        Object.entries(state.playerInviteCodes).filter(([savedCode]) => savedCode !== code),
+      ),
+    })
+    return { status: 'JOINED', workspace, playerId: linkedPlayerId }
   }
 
   async load(workspaceId: string): Promise<AppData> {
@@ -146,6 +290,27 @@ export class LocalStorageRepository implements AppRepository {
       sessionPlayers: [...data.sessionPlayers, ...records.sessionPlayers],
       transactions: [...data.transactions, ...records.transactions],
     }))
+  }
+
+  async createSessionFromPlan(records: SessionRecords): Promise<void> {
+    const planId = records.session.planId
+    if (!planId) throw new Error('A plan is required.')
+    this.updateData(records.session.workspaceId, (data) => {
+      const plan = data.plans.find((item) => item.id === planId)
+      if (!plan || plan.status !== 'CONFIRMED') throw new Error('A confirmed plan is required.')
+      if (data.sessions.some((item) => item.planId === planId)) {
+        throw new Error('This plan already has a session.')
+      }
+      return {
+        ...data,
+        sessions: [...data.sessions, records.session],
+        sessionPlayers: [...data.sessionPlayers, ...records.sessionPlayers],
+        transactions: [...data.transactions, ...records.transactions],
+        plans: data.plans.map((item) =>
+          item.id === planId ? { ...item, status: 'SESSION_CREATED', updatedAt: new Date().toISOString() } : item,
+        ),
+      }
+    })
   }
 
   async updateSession(session: Session): Promise<void> {
@@ -397,6 +562,46 @@ export class LocalStorageRepository implements AppRepository {
     })
   }
 
+  async createPlan(records: PlanRecords): Promise<void> {
+    this.updateData(records.plan.workspaceId, (data) => ({
+      ...data,
+      plans: [...data.plans, records.plan],
+      planOptions: [...data.planOptions, ...records.options],
+    }))
+  }
+
+  async savePlanVote(vote: PlanVote): Promise<void> {
+    this.updateData(vote.workspaceId, (data) => ({
+      ...data,
+      planVotes: [
+        ...data.planVotes.filter(
+          (item) => !(item.optionId === vote.optionId && item.playerId === vote.playerId),
+        ),
+        vote,
+      ],
+    }))
+  }
+
+  async confirmPlan(plan: Plan): Promise<void> {
+    this.updateData(plan.workspaceId, (data) => ({
+      ...data,
+      plans: data.plans.map((item) => (item.id === plan.id ? plan : item)),
+    }))
+  }
+
+  async updateWorkspaceMemberRole(
+    workspaceId: string,
+    userId: string,
+    role: Exclude<WorkspaceRole, 'OWNER'>,
+  ): Promise<void> {
+    this.updateData(workspaceId, (data) => ({
+      ...data,
+      workspaceMembers: data.workspaceMembers.map((member) =>
+        member.userId === userId && member.role !== 'OWNER' ? { ...member, role } : member,
+      ),
+    }))
+  }
+
   async importData(workspaceId: string, data: AppData): Promise<void> {
     this.updateData(workspaceId, () => withWorkspaceId(data, workspaceId))
   }
@@ -423,7 +628,14 @@ export class LocalStorageRepository implements AppRepository {
     const savedState = window.localStorage.getItem(WORKSPACES_STORAGE_KEY)
     if (savedState) {
       try {
-        return JSON.parse(savedState) as LocalWorkspaceState
+        const parsed = JSON.parse(savedState) as Partial<LocalWorkspaceState>
+        return {
+          version: 2,
+          workspaces: parsed.workspaces ?? [],
+          dataByWorkspace: parsed.dataByWorkspace ?? {},
+          accessCodes: parsed.accessCodes ?? {},
+          playerInviteCodes: parsed.playerInviteCodes ?? {},
+        }
       } catch {
         // Fall through to the non-destructive legacy migration.
       }
@@ -454,10 +666,24 @@ export class LocalStorageRepository implements AppRepository {
       return {
         version: 2,
         workspaces: [workspace],
-        dataByWorkspace: { [workspace.id]: data },
+        dataByWorkspace: {
+          [workspace.id]: {
+            ...data,
+            workspaceMembers: data.workspaceMembers.length
+              ? data.workspaceMembers
+              : [{
+                  workspaceId: workspace.id,
+                  userId: LOCAL_USER_ID,
+                  role: 'OWNER',
+                  displayName: 'Local host',
+                  createdAt: workspace.createdAt,
+                }],
+          },
+        },
         accessCodes: {
           [workspace.id]: createLocalCode(new Set<string>()),
         },
+        playerInviteCodes: {},
       }
     } catch {
       return emptyLocalState()
@@ -475,6 +701,7 @@ function emptyLocalState(): LocalWorkspaceState {
     workspaces: [],
     dataByWorkspace: {},
     accessCodes: {},
+    playerInviteCodes: {},
   }
 }
 
@@ -511,15 +738,41 @@ function withWorkspaceId(data: AppData, workspaceId: string): AppData {
     paymentOffsets: (data.paymentOffsets ?? []).map((offset) =>
       normalizePaymentOffset(offset, workspaceId),
     ),
+    workspaceMembers: data.workspaceMembers?.length
+      ? data.workspaceMembers.map((member) => ({ ...member, workspaceId }))
+      : [{
+          workspaceId,
+          userId: LOCAL_USER_ID,
+          role: 'OWNER',
+          displayName: 'Local host',
+          createdAt: new Date(0).toISOString(),
+        }],
+    plans: (data.plans ?? []).map((plan) => ({ ...plan, workspaceId })),
+    planOptions: (data.planOptions ?? []).map((option) => ({
+      ...option,
+      workspaceId,
+    })),
+    planVotes: (data.planVotes ?? []).map((vote) => ({ ...vote, workspaceId })),
   }
 }
 
 function normalizePlayer(player: Player, workspaceId: string): Player {
-  return { ...player, workspaceId, archivedAt: player.archivedAt ?? null }
+  return {
+    ...player,
+    workspaceId,
+    archivedAt: player.archivedAt ?? null,
+    userId: player.userId ?? null,
+  }
 }
 
 function normalizeSession(session: Session, workspaceId: string): Session {
-  return { ...session, workspaceId }
+  return {
+    ...session,
+    workspaceId,
+    hostUserId: session.hostUserId ?? null,
+    planId: session.planId ?? null,
+    startsAt: session.startsAt ?? null,
+  }
 }
 
 function normalizeSessionPlayer(

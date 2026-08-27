@@ -1,16 +1,24 @@
+import { useState } from 'react'
 import { NavLink, Outlet } from 'react-router-dom'
 import { BrandBackdrop } from './BrandBackdrop'
 import { WorkspaceCodeModal } from '../features/workspaces/WorkspaceCodeModal'
 import { WorkspaceMenu } from '../features/workspaces/WorkspaceMenu'
 import { useAppData } from '../hooks/useAppData'
+import { AccountModal } from '../features/auth/AccountModal'
+import { InviteModal } from '../features/workspaces/InviteModal'
+import { AccountMenu } from '../features/auth/AccountMenu'
+import { useWorkspaces } from '../hooks/useWorkspaces'
 
-const navItems = [
+const operatorNavItems = [
   { to: '/', label: 'Home', symbol: '⌂', end: true },
   { to: '/players', label: 'Players', symbol: '♙' },
   { to: '/history', label: 'History', symbol: '◷' },
 ]
 
-function Navigation() {
+function Navigation({ playerView }: { playerView: boolean }) {
+  const navItems = playerView
+    ? [{ to: '/', label: 'Plans', symbol: '⌂', end: true }, { to: '/profile', label: 'Profile', symbol: '♙' }]
+    : operatorNavItems
   return (
     <nav className="flex items-center justify-around gap-1 md:flex-col md:items-stretch md:gap-1.5">
       {navItems.map((item) => (
@@ -46,6 +54,10 @@ export function AppLayout() {
     importLocalData,
     isSaving,
   } = useAppData()
+  const { joinNotice, clearJoinNotice } = useWorkspaces()
+  const [showAccount, setShowAccount] = useState(false)
+  const [showInvite, setShowInvite] = useState(false)
+  const playerView = workspace.role === 'PLAYER'
 
   return (
     <div className="relative min-h-svh bg-app-bg text-ink">
@@ -61,7 +73,7 @@ export function AppLayout() {
           </div>
         </NavLink>
         <div className="min-h-0 flex-1 overflow-y-auto py-7">
-          <Navigation />
+          <Navigation playerView={playerView} />
         </div>
         <div className="shrink-0 border-t border-line px-2 pt-4">
           <p className="section-label">Workspace</p>
@@ -72,6 +84,8 @@ export function AppLayout() {
             {repositoryKind === 'supabase' ? 'Shared workspace' : 'Local demo'}
           </p>
           <WorkspaceMenu triggerClassName="mt-2 min-h-11 w-full rounded-xl text-left text-sm font-semibold text-ink-secondary transition hover:bg-white/[0.055] hover:text-ink focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ink" />
+          {workspace.role === 'OWNER' ? <button type="button" onClick={() => setShowInvite(true)} className="mb-2 min-h-11 w-full rounded-xl text-left text-sm font-semibold text-ink-secondary transition hover:bg-white/[0.055] hover:text-ink">Invite players or hosts</button> : null}
+          <AccountMenu placement="up" onOpenAccount={() => setShowAccount(true)} onOpenInvite={() => setShowInvite(true)} />
         </div>
       </aside>
 
@@ -85,11 +99,16 @@ export function AppLayout() {
                 <p className="truncate text-[11px] text-ink-muted">{workspace.name}</p>
               </div>
             </div>
-            <WorkspaceMenu
-              triggerLabel="Switch"
-              triggerClassName="min-h-11 shrink-0 rounded-xl px-2.5 text-xs font-bold text-ink-secondary transition hover:bg-white/[0.055] hover:text-ink focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ink"
-            />
+            <div className="ml-2 shrink-0">
+              <AccountMenu onOpenAccount={() => setShowAccount(true)} onOpenInvite={() => setShowInvite(true)} />
+            </div>
           </div>
+          {joinNotice ? (
+            <div role="status" className="glass-success mb-5 flex items-center justify-between gap-3 rounded-xl px-4 py-3">
+              <p className="min-w-0 text-sm text-ink"><span className="font-black">Joined {joinNotice.workspaceName}</span><span className="ml-2 text-[10px] font-black tracking-[0.12em] text-positive">{joinNotice.role}</span></p>
+              <button type="button" onClick={clearJoinNotice} aria-label="Dismiss join confirmation" className="min-h-8 shrink-0 px-2 text-ink-muted hover:text-ink">×</button>
+            </div>
+          ) : null}
           {repositoryKind === 'local' ? (
             <div className="glass-warning mb-5 rounded-xl px-4 py-3 text-sm text-amber-100">
               Local demo mode · Data stays on this device only.
@@ -114,9 +133,11 @@ export function AppLayout() {
       </main>
 
       <div className="glass-raised bottom-nav fixed inset-x-3 z-40 rounded-2xl px-2 py-1 md:hidden">
-        <Navigation />
+        <Navigation playerView={playerView} />
       </div>
-      <WorkspaceCodeModal />
+      {!showInvite ? <WorkspaceCodeModal /> : null}
+      {showAccount ? <AccountModal onClose={() => setShowAccount(false)} /> : null}
+      {showInvite ? <InviteModal onClose={() => setShowInvite(false)} /> : null}
     </div>
   )
 }

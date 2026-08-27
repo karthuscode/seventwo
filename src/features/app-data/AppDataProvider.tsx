@@ -8,10 +8,12 @@ import type {
   AppData,
   CashOutInput,
   NewSessionInput,
+  NewPlanInput,
   NewTransactionInput,
   Player,
   Session,
   Transaction,
+  PlanVoteResponse,
   UpdateTransactionInput,
 } from '../../types/domain'
 import {
@@ -20,6 +22,7 @@ import {
   type SessionRecords,
 } from '../../services/appRepository'
 import { LocalStorageRepository } from '../../services/localStorageRepository'
+import { LOCAL_USER_ID } from '../../services/localStorageRepository'
 import { useWorkspaces } from '../../hooks/useWorkspaces'
 import { AppDataContext } from './AppDataContext'
 import {
@@ -33,9 +36,12 @@ import {
 } from '../../utils/calculations'
 import { isStandardPaymentMethod } from '../../utils/paymentMethods'
 import { BrandBackdrop } from '../../components/BrandBackdrop'
+import { useAuth } from '../../hooks/useAuth'
 
 export function AppDataProvider({ children }: PropsWithChildren) {
   const { repository, selectedWorkspace: workspace } = useWorkspaces()
+  const { user } = useAuth()
+  const currentUserId = user?.id ?? LOCAL_USER_ID
   const [data, setData] = useState<AppData>(emptyAppData)
   const [legacyData, setLegacyData] = useState<AppData | null>(null)
   const [isLoading, setIsLoading] = useState(true)
@@ -103,6 +109,7 @@ export function AppDataProvider({ children }: PropsWithChildren) {
         nickname: trimmedNickname,
         createdAt: new Date().toISOString(),
         archivedAt: null,
+        userId: null,
       }
       ensurePlayerNicknameAvailable(data.players, player.nickname)
       await runMutation(async () => repository.addPlayer(player))
@@ -178,6 +185,9 @@ export function AppDataProvider({ children }: PropsWithChildren) {
         currency: 'RON',
         createdAt: now,
         finishedAt: null,
+        hostUserId: input.hostUserId ?? currentUserId,
+        planId: input.planId ?? null,
+        startsAt: null,
       }
       const records: SessionRecords = {
         session,
@@ -212,6 +222,58 @@ export function AppDataProvider({ children }: PropsWithChildren) {
         sessions: [...current.sessions, records.session],
         sessionPlayers: [...current.sessionPlayers, ...records.sessionPlayers],
         transactions: [...current.transactions, ...records.transactions],
+      }))
+      return session
+    },
+    createSessionFromPlan: async (input: NewSessionInput & { planId: string }) => {
+      const plan = data.plans.find((item) => item.id === input.planId)
+      if (!plan || plan.status !== 'CONFIRMED' || !plan.confirmedOptionId) {
+        throw new Error('A confirmed plan is required.')
+      }
+      ensurePrimaryPaymentMethod(input.paymentMethod)
+      const selectedIds = new Set(input.playerIds)
+      if (selectedIds.size !== input.playerIds.length) {
+        throw new Error('A player can only be selected once per session.')
+      }
+      const now = new Date().toISOString()
+      const session: Session = {
+        id: crypto.randomUUID(),
+        workspaceId: workspace.id,
+        name: input.name.trim(),
+        date: input.date,
+        status: 'ACTIVE',
+        buyInAmount: input.buyInAmount,
+        chipsPerBuyIn: input.chipsPerBuyIn,
+        currency: 'RON',
+        createdAt: now,
+        finishedAt: null,
+        hostUserId: plan.hostUserId ?? currentUserId,
+        planId: plan.id,
+        startsAt: data.planOptions.find((option) => option.id === plan.confirmedOptionId)?.startsAt ?? null,
+      }
+      const records: SessionRecords = {
+        session,
+        sessionPlayers: input.playerIds.map((playerId) => ({
+          id: crypto.randomUUID(), workspaceId: workspace.id, sessionId: session.id,
+          playerId, joinedAt: now, cashOutChips: null, cashOutAmount: null,
+          cashedOutAt: null, status: 'ACTIVE',
+        })),
+        transactions: input.playerIds.map((playerId) => ({
+          id: crypto.randomUUID(), workspaceId: workspace.id, sessionId: session.id,
+          playerId, type: 'BUY_IN', amount: session.buyInAmount,
+          chips: session.chipsPerBuyIn, paymentMethod: input.paymentMethod,
+          paymentStatus: input.paymentStatus, createdAt: now, updatedAt: now,
+        })),
+      }
+      await runMutation(() => repository.createSessionFromPlan(records))
+      setData((current) => ({
+        ...current,
+        sessions: [...current.sessions, session],
+        sessionPlayers: [...current.sessionPlayers, ...records.sessionPlayers],
+        transactions: [...current.transactions, ...records.transactions],
+        plans: current.plans.map((item) => item.id === plan.id
+          ? { ...item, status: 'SESSION_CREATED', updatedAt: now }
+          : item),
       }))
       return session
     },
@@ -572,6 +634,83 @@ export function AppDataProvider({ children }: PropsWithChildren) {
         ...current,
         transactions: current.transactions.map((item) =>
           item.id === transaction.id ? transaction : item,
+        ),
+      }))
+    },
+    createPlan: async (input: NewPlanInput) => {
+      const title = input.title.trim()
+      const times = [...new Set(input.startsAt)].sort()
+      if (!title) throw new Error('Enter a plan title.')
+      if (!times.length) throw new Error('Add at least one possible time.')
+      const now = new Date().toISOString()
+      const plan = {
+        id: crypto.randomUUID(), workspaceId: workspace.id, title,
+        status: 'VOTING' as const, createdByUserId: currentUserId,
+        hostUserId: input.hostUserId ?? currentUserId, confirmedOptionId: null,
+        createdAt: now, updatedAt: now,
+      }
+      const options = times.map((startsAt) => ({
+        id: crypto.randomUUID(), workspaceId: workspace.id, planId: plan.id,
+        startsAt, createdAt: now,
+      }))
+      await runMutation(() => repository.createPlan({ plan, options }))
+      setData((current) => ({
+        ...current,
+        plans: [plan, ...current.plans],
+        planOptions: [...current.planOptions, ...options],
+      }))
+      return plan
+    },
+    savePlanVote: async (
+      planId: string,
+      optionId: string,
+      playerId: string,
+      response: PlanVoteResponse,
+    ) => {
+      const existing = data.planVotes.find(
+        (item) => item.optionId === optionId && item.playerId === playerId,
+      )
+      const vote = {
+        id: existing?.id ?? crypto.randomUUID(), workspaceId: workspace.id,
+        planId, optionId, playerId, response, recordedByUserId: currentUserId,
+        updatedAt: new Date().toISOString(),
+      }
+      await runMutation(() => repository.savePlanVote(vote))
+      setData((current) => ({
+        ...current,
+        planVotes: [
+          ...current.planVotes.filter(
+            (item) => !(item.optionId === optionId && item.playerId === playerId),
+          ),
+          vote,
+        ],
+      }))
+    },
+    confirmPlan: async (planId: string, optionId: string, hostUserId: string) => {
+      const currentPlan = data.plans.find((item) => item.id === planId)
+      const option = data.planOptions.find(
+        (item) => item.id === optionId && item.planId === planId,
+      )
+      if (!currentPlan || !option) throw new Error('Plan option not found.')
+      const plan = {
+        ...currentPlan, status: 'CONFIRMED' as const,
+        confirmedOptionId: optionId, hostUserId,
+        updatedAt: new Date().toISOString(),
+      }
+      await runMutation(() => repository.confirmPlan(plan))
+      setData((current) => ({
+        ...current,
+        plans: current.plans.map((item) => item.id === planId ? plan : item),
+      }))
+    },
+    updateWorkspaceMemberRole: async (userId: string, role: 'HOST' | 'PLAYER') => {
+      const member = data.workspaceMembers.find((item) => item.userId === userId)
+      if (!member || member.role === 'OWNER') throw new Error('The workspace owner cannot be changed here.')
+      await runMutation(() => repository.updateWorkspaceMemberRole(workspace.id, userId, role))
+      setData((current) => ({
+        ...current,
+        workspaceMembers: current.workspaceMembers.map((item) =>
+          item.userId === userId ? { ...item, role } : item,
         ),
       }))
     },

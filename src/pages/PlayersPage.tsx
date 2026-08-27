@@ -50,6 +50,9 @@ export function PlayersPage() {
                 <h2 className="mt-5 break-words text-lg font-black text-ink">
                   {player.nickname}
                 </h2>
+                <span className={`mt-2 inline-flex rounded-full px-2 py-1 text-[10px] font-black uppercase tracking-wider ${player.userId ? 'bg-emerald-400/8 text-positive' : 'bg-white/[0.045] text-ink-muted'}`}>
+                  {player.userId ? 'Registered' : 'Unregistered'}
+                </span>
                 {player.archivedAt ? (
                   <span className="mt-2 inline-flex rounded-full bg-white/[0.045] px-2 py-1 text-[10px] font-black uppercase tracking-wider text-ink-muted">
                     Archived

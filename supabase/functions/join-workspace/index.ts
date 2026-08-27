@@ -32,22 +32,22 @@ Deno.serve(async (request) => {
       throw new RequestError(404, 'Workspace code not recognized.')
     }
 
-    // ignoreDuplicates prevents a returning OWNER from being downgraded to HOST.
-    const { error: membershipError } = await admin
-      .from('workspace_members')
-      .upsert(
-        { workspace_id: workspace.id, user_id: user.id, role: 'HOST' },
-        { onConflict: 'workspace_id,user_id', ignoreDuplicates: true },
-      )
-    if (membershipError) throw membershipError
-
     const { data: membership, error: roleError } = await admin
       .from('workspace_members')
       .select('role')
       .eq('workspace_id', workspace.id)
       .eq('user_id', user.id)
-      .single()
+      .maybeSingle()
     if (roleError) throw roleError
+
+    const nextRole = membership?.role === 'OWNER' ? 'OWNER' : 'HOST'
+    const { error: membershipError } = await admin
+      .from('workspace_members')
+      .upsert(
+        { workspace_id: workspace.id, user_id: user.id, role: nextRole },
+        { onConflict: 'workspace_id,user_id' },
+      )
+    if (membershipError) throw membershipError
 
     await clearJoinFailures(admin, user.id)
     return jsonResponse({
@@ -55,7 +55,7 @@ Deno.serve(async (request) => {
         id: workspace.id,
         name: workspace.name,
         createdAt: workspace.created_at,
-        role: membership.role,
+        role: nextRole,
       },
     })
   } catch (error) {

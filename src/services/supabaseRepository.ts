@@ -2,7 +2,12 @@ import type { SupabaseClient } from '@supabase/supabase-js'
 import type {
   AppData,
   PaymentOffset,
+  Plan,
+  PlanOption,
+  PlanVote,
   Player,
+  PlayerInviteResult,
+  JoinInviteResult,
   PayoutAllocation,
   Session,
   SessionPlayer,
@@ -10,12 +15,14 @@ import type {
   Workspace,
   WorkspaceAccessResult,
   WorkspaceRole,
+  WorkspaceMember,
 } from '../types/domain'
 import {
   type AppRepository,
   type CashOutRecords,
   type SessionPlayerRecords,
   type SessionRecords,
+  type PlanRecords,
 } from './appRepository'
 
 interface WorkspaceRow {
@@ -30,6 +37,7 @@ interface PlayerRow {
   nickname: string
   created_at: string
   archived_at: string | null
+  user_id: string | null
 }
 
 interface SessionRow {
@@ -43,6 +51,40 @@ interface SessionRow {
   currency: Session['currency']
   created_at: string
   finished_at: string | null
+  host_user_id: string | null
+  plan_id: string | null
+  starts_at: string | null
+}
+
+interface PlanRow {
+  id: string
+  workspace_id: string
+  title: string
+  status: Plan['status']
+  created_by_user_id: string
+  host_user_id: string | null
+  confirmed_option_id: string | null
+  created_at: string
+  updated_at: string
+}
+
+interface PlanOptionRow {
+  id: string
+  workspace_id: string
+  plan_id: string
+  starts_at: string
+  created_at: string
+}
+
+interface PlanVoteRow {
+  id: string
+  workspace_id: string
+  plan_id: string
+  option_id: string
+  player_id: string
+  response: PlanVote['response']
+  recorded_by_user_id: string
+  updated_at: string
 }
 
 interface SessionPlayerRow {
@@ -154,6 +196,34 @@ export class SupabaseRepository implements AppRepository {
     return result.accessCode
   }
 
+  async createPlayerInvite(
+    workspaceId: string,
+    playerId?: string,
+  ): Promise<PlayerInviteResult> {
+    return this.invokeFunction<PlayerInviteResult>(
+      'create-player-invite',
+      playerId ? { workspaceId, playerId } : { workspaceId },
+    )
+  }
+
+  async redeemPlayerInvite(code: string): Promise<Workspace> {
+    const result = await this.invokeFunction<{ workspace: Workspace }>(
+      'redeem-player-invite',
+      { code },
+    )
+    return result.workspace
+  }
+
+  async joinWithInviteCode(
+    code: string,
+    nickname?: string,
+  ): Promise<JoinInviteResult> {
+    return this.invokeFunction<JoinInviteResult>(
+      'redeem-invite-code',
+      nickname ? { code, nickname } : { code },
+    )
+  }
+
   async load(workspaceId: string): Promise<AppData> {
     const [
       playersResult,
@@ -162,6 +232,10 @@ export class SupabaseRepository implements AppRepository {
       transactionsResult,
       payoutAllocationsResult,
       paymentOffsetsResult,
+      membersResult,
+      plansResult,
+      planOptionsResult,
+      planVotesResult,
     ] = await Promise.all([
         this.client
           .from('players')
@@ -193,6 +267,26 @@ export class SupabaseRepository implements AppRepository {
           .select('*')
           .eq('workspace_id', workspaceId)
           .order('created_at'),
+        this.client
+          .from('workspace_members')
+          .select('workspace_id, user_id, role, created_at')
+          .eq('workspace_id', workspaceId)
+          .order('created_at'),
+        this.client
+          .from('event_plans')
+          .select('*')
+          .eq('workspace_id', workspaceId)
+          .order('created_at', { ascending: false }),
+        this.client
+          .from('plan_options')
+          .select('*')
+          .eq('workspace_id', workspaceId)
+          .order('starts_at'),
+        this.client
+          .from('plan_votes')
+          .select('*')
+          .eq('workspace_id', workspaceId)
+          .order('updated_at'),
       ])
 
     throwIfError(playersResult.error)
@@ -201,6 +295,27 @@ export class SupabaseRepository implements AppRepository {
     throwIfError(transactionsResult.error)
     throwIfError(payoutAllocationsResult.error)
     throwIfError(paymentOffsetsResult.error)
+    throwIfError(membersResult.error)
+    throwIfError(plansResult.error)
+    throwIfError(planOptionsResult.error)
+    throwIfError(planVotesResult.error)
+
+    const rawMembers = (membersResult.data ?? []) as Array<{
+      workspace_id: string
+      user_id: string
+      role: WorkspaceRole
+      created_at: string
+    }>
+    const memberIds = rawMembers.map((item) => item.user_id)
+    const profileNames = new Map<string, string>()
+    if (memberIds.length) {
+      const { data: profiles, error: profilesError } = await this.client
+        .from('user_profiles')
+        .select('user_id, display_name')
+        .in('user_id', memberIds)
+      throwIfError(profilesError)
+      for (const profile of profiles ?? []) profileNames.set(profile.user_id, profile.display_name)
+    }
 
     return {
       players: (playersResult.data as PlayerRow[]).map(mapPlayer),
@@ -217,6 +332,16 @@ export class SupabaseRepository implements AppRepository {
       paymentOffsets: (paymentOffsetsResult.data as PaymentOffsetRow[]).map(
         mapPaymentOffset,
       ),
+      workspaceMembers: rawMembers.map((item): WorkspaceMember => ({
+        workspaceId: item.workspace_id,
+        userId: item.user_id,
+        role: item.role,
+        displayName: profileNames.get(item.user_id) ?? null,
+        createdAt: item.created_at,
+      })),
+      plans: (plansResult.data as PlanRow[]).map(mapPlan),
+      planOptions: (planOptionsResult.data as PlanOptionRow[]).map(mapPlanOption),
+      planVotes: (planVotesResult.data as PlanVoteRow[]).map(mapPlanVote),
     }
   }
 
@@ -289,6 +414,19 @@ export class SupabaseRepository implements AppRepository {
       await this.client.from('sessions').delete().eq('id', records.session.id)
       throw error
     }
+  }
+
+  async createSessionFromPlan(records: SessionRecords): Promise<void> {
+    const planId = records.session.planId
+    if (!planId) throw new Error('A confirmed plan is required.')
+    const { error } = await this.client.rpc('create_session_from_plan', {
+      target_workspace_id: records.session.workspaceId,
+      target_plan_id: planId,
+      session_row: records.session,
+      participant_rows: records.sessionPlayers,
+      transaction_rows: records.transactions,
+    })
+    throwIfError(error)
   }
 
   async updateSession(session: Session): Promise<void> {
@@ -488,6 +626,47 @@ export class SupabaseRepository implements AppRepository {
     if (!data) throw new Error('Transaction could not be updated.')
   }
 
+  async createPlan(records: PlanRecords): Promise<void> {
+    const { error: planError } = await this.client
+      .from('event_plans').insert(toPlanRow(records.plan))
+    throwIfError(planError)
+    const { error: optionsError } = await this.client
+      .from('plan_options').insert(records.options.map(toPlanOptionRow))
+    if (optionsError) {
+      await this.client.from('event_plans').delete().eq('id', records.plan.id)
+      throwIfError(optionsError)
+    }
+  }
+
+  async savePlanVote(vote: PlanVote): Promise<void> {
+    const { error } = await this.client.from('plan_votes').upsert(toPlanVoteRow(vote), {
+      onConflict: 'option_id,player_id',
+    })
+    throwIfError(error)
+  }
+
+  async confirmPlan(plan: Plan): Promise<void> {
+    const { error } = await this.client.from('event_plans').update({
+      status: plan.status,
+      confirmed_option_id: plan.confirmedOptionId,
+      host_user_id: plan.hostUserId,
+      updated_at: plan.updatedAt,
+    }).eq('id', plan.id).eq('workspace_id', plan.workspaceId)
+    throwIfError(error)
+  }
+
+  async updateWorkspaceMemberRole(
+    workspaceId: string,
+    userId: string,
+    role: Exclude<WorkspaceRole, 'OWNER'>,
+  ): Promise<void> {
+    const { data, error } = await this.client.from('workspace_members')
+      .update({ role }).eq('workspace_id', workspaceId).eq('user_id', userId)
+      .neq('role', 'OWNER').select('user_id').single()
+    throwIfError(error)
+    if (!data) throw new Error('Workspace member could not be updated.')
+  }
+
   async importData(workspaceId: string, data: AppData): Promise<void> {
     const current = await this.load(workspaceId)
     if (
@@ -657,6 +836,7 @@ function mapPlayer(row: PlayerRow): Player {
     nickname: row.nickname,
     createdAt: row.created_at,
     archivedAt: row.archived_at,
+    userId: row.user_id,
   }
 }
 
@@ -672,6 +852,46 @@ function mapSession(row: SessionRow): Session {
     currency: row.currency,
     createdAt: row.created_at,
     finishedAt: row.finished_at,
+    hostUserId: row.host_user_id,
+    planId: row.plan_id,
+    startsAt: row.starts_at,
+  }
+}
+
+function mapPlan(row: PlanRow): Plan {
+  return {
+    id: row.id,
+    workspaceId: row.workspace_id,
+    title: row.title,
+    status: row.status,
+    createdByUserId: row.created_by_user_id,
+    hostUserId: row.host_user_id,
+    confirmedOptionId: row.confirmed_option_id,
+    createdAt: row.created_at,
+    updatedAt: row.updated_at,
+  }
+}
+
+function mapPlanOption(row: PlanOptionRow): PlanOption {
+  return {
+    id: row.id,
+    workspaceId: row.workspace_id,
+    planId: row.plan_id,
+    startsAt: row.starts_at,
+    createdAt: row.created_at,
+  }
+}
+
+function mapPlanVote(row: PlanVoteRow): PlanVote {
+  return {
+    id: row.id,
+    workspaceId: row.workspace_id,
+    planId: row.plan_id,
+    optionId: row.option_id,
+    playerId: row.player_id,
+    response: row.response,
+    recordedByUserId: row.recorded_by_user_id,
+    updatedAt: row.updated_at,
   }
 }
 
@@ -739,6 +959,7 @@ function toPlayerRow(player: Player) {
     nickname: player.nickname,
     created_at: player.createdAt,
     archived_at: player.archivedAt,
+    user_id: player.userId,
   }
 }
 
@@ -754,6 +975,46 @@ function toSessionRow(session: Session) {
     currency: session.currency,
     created_at: session.createdAt,
     finished_at: session.finishedAt,
+    host_user_id: session.hostUserId,
+    plan_id: session.planId,
+    starts_at: session.startsAt,
+  }
+}
+
+function toPlanRow(plan: Plan) {
+  return {
+    id: plan.id,
+    workspace_id: plan.workspaceId,
+    title: plan.title,
+    status: plan.status,
+    created_by_user_id: plan.createdByUserId,
+    host_user_id: plan.hostUserId,
+    confirmed_option_id: plan.confirmedOptionId,
+    created_at: plan.createdAt,
+    updated_at: plan.updatedAt,
+  }
+}
+
+function toPlanOptionRow(option: PlanOption) {
+  return {
+    id: option.id,
+    workspace_id: option.workspaceId,
+    plan_id: option.planId,
+    starts_at: option.startsAt,
+    created_at: option.createdAt,
+  }
+}
+
+function toPlanVoteRow(vote: PlanVote) {
+  return {
+    id: vote.id,
+    workspace_id: vote.workspaceId,
+    plan_id: vote.planId,
+    option_id: vote.optionId,
+    player_id: vote.playerId,
+    response: vote.response,
+    recorded_by_user_id: vote.recordedByUserId,
+    updated_at: vote.updatedAt,
   }
 }
 
@@ -815,8 +1076,14 @@ function toTransactionRow(transaction: Transaction) {
 
 function assignWorkspace(data: AppData, workspaceId: string): AppData {
   return {
-    players: data.players.map((item) => ({ ...item, workspaceId })),
-    sessions: data.sessions.map((item) => ({ ...item, workspaceId })),
+    players: data.players.map((item) => ({ ...item, workspaceId, userId: item.userId ?? null })),
+    sessions: data.sessions.map((item) => ({
+      ...item,
+      workspaceId,
+      hostUserId: item.hostUserId ?? null,
+      planId: item.planId ?? null,
+      startsAt: item.startsAt ?? null,
+    })),
     sessionPlayers: data.sessionPlayers.map((item) => ({
       ...item,
       workspaceId,
@@ -834,5 +1101,9 @@ function assignWorkspace(data: AppData, workspaceId: string): AppData {
       ...item,
       workspaceId,
     })),
+    workspaceMembers: (data.workspaceMembers ?? []).map((item) => ({ ...item, workspaceId })),
+    plans: (data.plans ?? []).map((item) => ({ ...item, workspaceId })),
+    planOptions: (data.planOptions ?? []).map((item) => ({ ...item, workspaceId })),
+    planVotes: (data.planVotes ?? []).map((item) => ({ ...item, workspaceId })),
   }
 }

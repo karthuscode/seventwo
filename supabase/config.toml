@@ -13,3 +13,15 @@ verify_jwt = false
 
 [functions.rotate-workspace-code]
 verify_jwt = false
+
+[functions.create-player-invite]
+verify_jwt = false
+
+[functions.redeem-player-invite]
+verify_jwt = false
+
+[functions.transfer-anonymous-access]
+verify_jwt = false
+
+[functions.redeem-invite-code]
+verify_jwt = false

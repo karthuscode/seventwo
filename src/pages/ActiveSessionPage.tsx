@@ -23,7 +23,7 @@ import {
   sumMoney,
   toMinorUnits,
 } from '../utils/calculations'
-import { formatDate, formatMoney } from '../utils/format'
+import { formatDate, formatDateTime, formatMoney } from '../utils/format'
 
 type OpenDialog =
   | { kind: 'rebuy'; player: Player }
@@ -50,6 +50,7 @@ export function ActiveSessionPage() {
     finishSession,
     deleteSession,
     removeSessionPlayer,
+    workspaceMembers,
   } = useAppData()
   const [updatingTransactionId, setUpdatingTransactionId] = useState<
     string | null
@@ -70,6 +71,7 @@ export function ActiveSessionPage() {
   }
 
   const session = foundSession
+  const hostName = workspaceMembers.find((member) => member.userId === session.hostUserId)?.displayName
 
   if (session.status === 'FINISHED') {
     return (
@@ -175,7 +177,7 @@ export function ActiveSessionPage() {
       <PageHeader
         eyebrow="Live session"
         title={session.name}
-        description={`${formatDate(session.date)} · ${formatMoney(session.buyInAmount)} = ${session.chipsPerBuyIn} chips`}
+        description={`${session.startsAt ? formatDateTime(session.startsAt) : formatDate(session.date)} · ${formatMoney(session.buyInAmount)} = ${session.chipsPerBuyIn} chips${hostName ? ` · Hosted by ${hostName}` : ''}`}
         action={
           <div className="flex items-center gap-2">
             <Button onClick={() => setDialog('finish')}>Finish session</Button>

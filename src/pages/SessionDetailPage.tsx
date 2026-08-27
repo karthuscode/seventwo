@@ -23,6 +23,8 @@ export function SessionDetailPage() {
     payoutAllocations,
     paymentOffsets,
     deleteSession,
+    workspace,
+    workspaceMembers,
   } = useAppData()
   const navigate = useNavigate()
   const [showDelete, setShowDelete] = useState(false)
@@ -62,6 +64,8 @@ export function SessionDetailPage() {
   const incompletePlayers = participants.filter(
     (item) => item.participation.status !== 'CASHED_OUT',
   )
+  const hostName = workspaceMembers.find((member) => member.userId === session.hostUserId)?.displayName
+  const canManage = workspace.role === 'OWNER' || workspace.role === 'HOST'
 
   return (
     <div className="section-enter space-y-9">
@@ -69,11 +73,11 @@ export function SessionDetailPage() {
       <PageHeader
         eyebrow="Session record"
         title={session.name}
-        description={`${formatDate(session.date)} · ${formatMoney(session.buyInAmount)} = ${session.chipsPerBuyIn} chips`}
+        description={`${session.startsAt ? formatDateTime(session.startsAt) : formatDate(session.date)} · ${formatMoney(session.buyInAmount)} = ${session.chipsPerBuyIn} chips${hostName ? ` · Hosted by ${hostName}` : ''}`}
         action={
           <div className="flex flex-wrap items-center gap-2">
             <StatusBadge status={session.status} />
-            <Button variant="danger" onClick={() => setShowDelete(true)}>Delete session</Button>
+            {canManage ? <Button variant="danger" onClick={() => setShowDelete(true)}>Delete session</Button> : null}
           </div>
         }
       />
@@ -200,6 +204,7 @@ export function SessionDetailPage() {
             ),
           )}
           onClose={() => setTransactionPlayer(null)}
+          readOnly={!canManage}
         />
       ) : null}
       {showDelete ? (

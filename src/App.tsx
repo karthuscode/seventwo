@@ -1,4 +1,5 @@
-import { createBrowserRouter, RouterProvider } from 'react-router-dom'
+import { createBrowserRouter, Navigate, RouterProvider } from 'react-router-dom'
+import type { ReactNode } from 'react'
 import { AppLayout } from './components/AppLayout'
 import { ActiveSessionPage } from './pages/ActiveSessionPage'
 import { DashboardPage } from './pages/DashboardPage'
@@ -14,6 +15,9 @@ import { useAuth } from './hooks/useAuth'
 import { useWorkspaces } from './hooks/useWorkspaces'
 import { WorkspaceLandingPage } from './pages/WorkspaceLandingPage'
 import { BrandBackdrop } from './components/BrandBackdrop'
+import { PlanDetailPage } from './pages/PlanDetailPage'
+import { ProfilePage } from './pages/ProfilePage'
+import { useAppData } from './hooks/useAppData'
 
 const router = createBrowserRouter([
   {
@@ -22,14 +26,21 @@ const router = createBrowserRouter([
       { path: '/', element: <DashboardPage /> },
       { path: '/players', element: <PlayersPage /> },
       { path: '/players/:playerId', element: <PlayerDetailPage /> },
-      { path: '/sessions/new', element: <NewSessionPage /> },
-      { path: '/sessions/:sessionId/active', element: <ActiveSessionPage /> },
+      { path: '/sessions/new', element: <OperatorOnly><NewSessionPage /></OperatorOnly> },
+      { path: '/sessions/:sessionId/active', element: <OperatorOnly><ActiveSessionPage /></OperatorOnly> },
       { path: '/sessions/:sessionId', element: <SessionDetailPage /> },
       { path: '/history', element: <HistoryPage /> },
+      { path: '/plans/:planId', element: <PlanDetailPage /> },
+      { path: '/profile', element: <ProfilePage /> },
       { path: '*', element: <NotFoundPage /> },
     ],
   },
 ])
+
+function OperatorOnly({ children }: { children: ReactNode }) {
+  const { workspace } = useAppData()
+  return workspace.role === 'PLAYER' ? <Navigate to="/" replace /> : children
+}
 
 export default function App() {
   const { isAuthenticated, isLoading, error, retry } = useAuth()

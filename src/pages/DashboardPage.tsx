@@ -1,9 +1,12 @@
+import { useState } from 'react'
 import { Link } from 'react-router-dom'
 import { StatusBadge } from '../components/StatusBadge'
 import { pickPokerQuote } from '../content/pokerQuotes'
 import { useAppData } from '../hooks/useAppData'
 import { calculateBankSummary } from '../utils/calculations'
 import { formatDate, formatMoney } from '../utils/format'
+import { CreatePlanModal } from '../features/plans/CreatePlanModal'
+import { rankPlanOptions } from '../utils/planning'
 
 const dashboardQuote = pickPokerQuote()
 
@@ -14,11 +17,24 @@ export function DashboardPage() {
     transactions,
     payoutAllocations,
     paymentOffsets,
+    plans,
+    planOptions,
+    planVotes,
+    workspace,
   } = useAppData()
+  const [showPlan, setShowPlan] = useState(false)
+  const canManage = workspace.role === 'OWNER' || workspace.role === 'HOST'
   const activeSession = sessions.find((session) => session.status === 'ACTIVE')
   const recentSessions = [...sessions]
     .sort((a, b) => b.date.localeCompare(a.date))
     .slice(0, 4)
+  const activePlan = plans.find((plan) => plan.status === 'VOTING' || plan.status === 'CONFIRMED')
+  const bestPlanOption = activePlan
+    ? rankPlanOptions(
+        planOptions.filter((option) => option.planId === activePlan.id),
+        planVotes,
+      )[0]
+    : undefined
 
   return (
     <div className="section-enter space-y-9 sm:space-y-10">
@@ -27,13 +43,10 @@ export function DashboardPage() {
         <h1 className="quote-enter mt-3 max-w-[18ch] [overflow-wrap:anywhere] text-[clamp(2.2rem,6vw,4.15rem)] font-black leading-[0.96] tracking-[-0.05em] text-ink">
           {dashboardQuote}
         </h1>
-        <Link
-          to="/sessions/new"
-          className="glass-interactive mt-6 inline-flex min-h-12 items-center justify-center rounded-xl px-4 py-2.5 text-sm font-bold text-ink focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ink"
-        >
-          + New session
-        </Link>
+        {canManage ? <div className="mt-6 flex flex-wrap gap-2"><Link to="/sessions/new" className="glass-interactive inline-flex min-h-12 items-center justify-center rounded-xl px-4 py-2.5 text-sm font-bold text-ink focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ink">+ New session</Link><button type="button" onClick={() => setShowPlan(true)} className="inline-flex min-h-12 items-center justify-center rounded-xl px-4 text-sm font-bold text-ink-secondary transition hover:bg-white/5 hover:text-ink">Plan</button></div> : null}
       </header>
+
+      {activePlan ? <Link to={`/plans/${activePlan.id}`} className="glass-interactive block rounded-2xl p-5 sm:p-6"><div className="flex items-start justify-between gap-4"><div><p className="section-label">Next game · {activePlan.status === 'VOTING' ? 'Voting' : 'Confirmed'}</p><h2 className="mt-2 text-xl font-black text-ink">{activePlan.title}</h2>{bestPlanOption ? <p className="mt-3 text-sm text-ink-secondary">{new Intl.DateTimeFormat(undefined, { weekday: 'short', month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' }).format(new Date(bestPlanOption.option.startsAt))} · <strong className="text-ink">{bestPlanOption.available} available</strong> · {bestPlanOption.maybe} maybe</p> : null}</div><span className="text-xl text-ink-muted">→</span></div></Link> : playerViewMessage(workspace.role)}
 
       {activeSession ? (
         <ActiveSessionPreview
@@ -108,8 +121,13 @@ export function DashboardPage() {
           </p>
         )}
       </section>
+      {showPlan ? <CreatePlanModal onClose={() => setShowPlan(false)} /> : null}
     </div>
   )
+}
+
+function playerViewMessage(role: string) {
+  return role === 'PLAYER' ? <p className="py-5 text-sm text-ink-muted">No active poker-night poll yet.</p> : null
 }
 
 function ActiveSessionPreview({
