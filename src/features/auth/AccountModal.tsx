@@ -1,6 +1,7 @@
 import { useState } from 'react'
 import { Modal } from '../../components/Modal'
 import { Button } from '../../components/Button'
+import { PrivacyLink } from '../../components/PrivacyLink'
 import { useAuth } from '../../hooks/useAuth'
 
 export function AccountModal({ onClose }: { onClose: () => void }) {
@@ -29,9 +30,12 @@ export function AccountModal({ onClose }: { onClose: () => void }) {
   if (mode === 'local') {
     return (
       <Modal title="Account" onClose={onClose}>
-        <p className="text-sm leading-6 text-ink-secondary">
-          Accounts and cross-device workspace invites are available when Supabase is configured. Local demo data remains on this device.
-        </p>
+        <div>
+          <p className="text-sm leading-6 text-ink-secondary">
+            Accounts and cross-device workspace invites are available when Supabase is configured. Local demo data remains on this device.
+          </p>
+          <PrivacyLink className="mt-5 inline-block" />
+        </div>
       </Modal>
     )
   }
@@ -62,6 +66,7 @@ export function AccountModal({ onClose }: { onClose: () => void }) {
       )}
       {message ? <p role="status" className="mt-5 text-sm text-positive">{message}</p> : null}
       {error ? <p role="alert" className="mt-5 text-sm text-red-300">{error}</p> : null}
+      <PrivacyLink className="mt-6 inline-block" />
     </Modal>
   )
 }

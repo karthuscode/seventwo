@@ -1,6 +1,7 @@
 import { useState, type FormEvent } from 'react'
 import { BrandBackdrop } from '../../components/BrandBackdrop'
 import { Button } from '../../components/Button'
+import { PrivacyLink } from '../../components/PrivacyLink'
 import { useAuth } from '../../hooks/useAuth'
 
 type AuthTab = 'login' | 'register'
@@ -141,6 +142,7 @@ export function AuthScreen() {
               Retry connection
             </button>
           ) : null}
+          <PrivacyLink className="mt-3 inline-block" />
         </div>
       </section>
     </main>

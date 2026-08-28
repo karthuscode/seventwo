@@ -25,3 +25,5 @@ React · TypeScript · Supabase · Tailwind CSS · Cloudflare Pages
 ## Status
 
 SevenTwo is an active personal project built for real home-game use.
+
+[Privacy Policy](PRIVACY.md)
