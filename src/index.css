@@ -96,6 +96,7 @@ summary::-webkit-details-marker {
 
 .bottom-nav {
   bottom: calc(env(safe-area-inset-bottom, 0px) + 0.65rem);
+  background: rgba(32, 35, 38, 0.96);
 }
 
 .surface {
@@ -211,6 +212,10 @@ summary::-webkit-details-marker {
 
   .glass-danger {
     background: rgba(63, 22, 27, 0.62);
+  }
+
+  .bottom-nav.glass-raised {
+    background: rgba(32, 35, 38, 0.94);
   }
 }
 

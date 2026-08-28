@@ -41,7 +41,7 @@ import { canChangeMemberRole } from '../../utils/roles'
 import { canRecordVoteForPlayer } from '../../utils/planning'
 
 export function AppDataProvider({ children }: PropsWithChildren) {
-  const { repository, selectedWorkspace: workspace } = useWorkspaces()
+  const { repository, selectedWorkspace: workspace, refreshWorkspaces } = useWorkspaces()
   const { user } = useAuth()
   const currentUserId = user?.id ?? LOCAL_USER_ID
   const [data, setData] = useState<AppData>(emptyAppData)
@@ -60,6 +60,13 @@ export function AppDataProvider({ children }: PropsWithChildren) {
       setData(nextData)
       setError(null)
 
+      const canonicalMembership = nextData.workspaceMembers.find(
+        (member) => member.userId === currentUserId,
+      )
+      if (canonicalMembership && canonicalMembership.role !== workspace.role) {
+        await refreshWorkspaces()
+      }
+
       if (repository.kind === 'supabase' && !hasAppData(nextData)) {
         const localData = await new LocalStorageRepository().loadLegacyData()
         setLegacyData(localData)
@@ -71,7 +78,7 @@ export function AppDataProvider({ children }: PropsWithChildren) {
     } finally {
       setIsLoading(false)
     }
-  }, [repository, workspace.id])
+  }, [currentUserId, refreshWorkspaces, repository, workspace.id, workspace.role])
 
   useEffect(() => {
     // Repository hydration is the external synchronization this effect owns.
@@ -707,6 +714,23 @@ export function AppDataProvider({ children }: PropsWithChildren) {
       setData((current) => ({
         ...current,
         plans: current.plans.map((item) => item.id === planId ? plan : item),
+      }))
+    },
+    deletePlan: async (planId: string) => {
+      if (workspace.role !== 'OWNER' && workspace.role !== 'HOST') {
+        throw new Error('Only workspace operators can delete plans.')
+      }
+      const plan = data.plans.find((item) => item.id === planId)
+      if (!plan) throw new Error('Plan not found.')
+      if (data.sessions.some((session) => session.planId === planId)) {
+        throw new Error('This plan already created a session and cannot be deleted.')
+      }
+      await runMutation(() => repository.deletePlan(planId, workspace.id))
+      setData((current) => ({
+        ...current,
+        plans: current.plans.filter((item) => item.id !== planId),
+        planOptions: current.planOptions.filter((item) => item.planId !== planId),
+        planVotes: current.planVotes.filter((item) => item.planId !== planId),
       }))
     },
     updateWorkspaceMemberRole: async (userId: string, role: 'HOST' | 'PLAYER') => {

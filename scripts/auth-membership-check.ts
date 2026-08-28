@@ -18,6 +18,9 @@ assert(repository.includes("'join-workspace'"), 'The frontend should use the wor
 assert(repository.includes("'get-workspace-invite'"), 'The frontend should use the workspace invite viewer.')
 assert(!repository.includes("'redeem-invite-code'"), 'The frontend must not call the deprecated invite redeemer.')
 assert(!repository.includes("'create-player-invite'"), 'The frontend must not create single-use Player invites.')
+assert(!repository.includes("roles.get(row.id) ??"), 'Workspace roles must never use a fabricated fallback.')
+assert(repository.includes(".from('workspace_members')"), 'Workspace roles must come from workspace_members.')
+assert(repository.includes("rpc('delete_owned_workspace'"), 'Workspace deletion must use the owner-checked RPC.')
 
 const joinWorkspace = source('../supabase/functions/join-workspace/index.ts')
 assert(joinWorkspace.includes('{ registeredOnly: true }'), 'Workspace joins require a registered account.')
@@ -37,6 +40,21 @@ assert(migration.includes('workspaces_creation_request_unique'), 'Workspace crea
 assert(migration.includes('link_player_to_registered_member'), 'Historical linking must be owner-controlled.')
 assert(migration.includes('Workspace members view players'), 'Members need the roster for Plans and Players.')
 assert(migration.includes('revoke update on public.players from authenticated'), 'Direct user-id linking must be blocked.')
+
+const rosterRepair = source('../supabase/migrations/20260903001000_repair_workspace_creator_schema.sql')
+assert(rosterRepair.includes('Workspace members view players'), 'Every workspace member must be allowed to read the roster.')
+assert(rosterRepair.includes('public.is_workspace_member(workspace_id)'), 'Roster reads must remain workspace-scoped.')
+
+const adminControls = source('../supabase/migrations/20260903003000_release_admin_controls.sql')
+assert(adminControls.includes("membership.role = 'OWNER'"), 'Workspace deletion must require OWNER membership.')
+assert(adminControls.includes("owner_count <> 1"), 'Workspace deletion must require a sole OWNER.')
+assert(adminControls.includes("set_config('seventwo.owner_transfer', 'on', true)"), 'Workspace deletion must explicitly authorize the owner cascade.')
+
+const workspaceProvider = source('../src/features/workspaces/WorkspaceProvider.tsx')
+assert(workspaceProvider.includes('canonicalWorkspaces'), 'Join and create results must be refreshed from canonical membership data.')
+
+const appLayout = source('../src/components/AppLayout.tsx')
+assert(appLayout.includes("to: '/players', label: 'Players'"), 'PLAYER navigation must expose the roster.')
 
 console.log('Auth and membership checks passed.')
 

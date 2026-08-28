@@ -524,6 +524,42 @@ export class LocalStorageRepository implements AppRepository {
     }))
   }
 
+  async deletePlan(planId: string, workspaceId: string): Promise<void> {
+    this.updateData(workspaceId, (data) => {
+      if (data.sessions.some((session) => session.planId === planId)) {
+        throw new Error('This plan already created a session and cannot be deleted.')
+      }
+      return {
+        ...data,
+        plans: data.plans.filter((plan) => plan.id !== planId),
+        planOptions: data.planOptions.filter((option) => option.planId !== planId),
+        planVotes: data.planVotes.filter((vote) => vote.planId !== planId),
+      }
+    })
+  }
+
+  async deleteWorkspace(workspaceId: string): Promise<void> {
+    const state = this.readState()
+    const workspace = state.workspaces.find((item) => item.id === workspaceId)
+    if (!workspace || workspace.role !== 'OWNER') {
+      throw new Error('Only the workspace owner can delete this workspace.')
+    }
+    const { [workspaceId]: _removedData, ...dataByWorkspace } = state.dataByWorkspace
+    const { [workspaceId]: _removedCode, ...accessCodes } = state.accessCodes
+    const playerInviteCodes = Object.fromEntries(
+      Object.entries(state.playerInviteCodes).filter(
+        ([, invite]) => invite.workspaceId !== workspaceId,
+      ),
+    )
+    this.writeState({
+      ...state,
+      workspaces: state.workspaces.filter((item) => item.id !== workspaceId),
+      dataByWorkspace,
+      accessCodes,
+      playerInviteCodes,
+    })
+  }
+
   async updateWorkspaceMemberRole(
     workspaceId: string,
     userId: string,

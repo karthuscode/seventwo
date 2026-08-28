@@ -80,11 +80,18 @@ export function WorkspaceProvider({ children }: PropsWithChildren) {
     setError(null)
     try {
       const result = await repository.createWorkspace(cleanName)
-      setWorkspaces((current) => upsertWorkspace(current, result.workspace))
+      const canonicalWorkspaces = await repository.listWorkspaces()
+      const canonicalWorkspace = canonicalWorkspaces.find(
+        (workspace) => workspace.id === result.workspace.id,
+      )
+      if (!canonicalWorkspace) {
+        throw new Error('The new workspace membership could not be verified.')
+      }
+      setWorkspaces(canonicalWorkspaces)
       if (result.accessCode) {
         setWorkspaceInvite({ workspaceId: result.workspace.id, inviteCode: result.accessCode })
       }
-      selectWorkspace(result.workspace.id)
+      selectWorkspace(canonicalWorkspace.id)
     } catch (caughtError) {
       setError(toMessage(caughtError))
       throw caughtError
@@ -130,14 +137,37 @@ export function WorkspaceProvider({ children }: PropsWithChildren) {
     try {
       const result = await repository.joinWithInviteCode(normalizedCode, nickname)
       if (result.status === 'JOINED') {
-        setWorkspaces((current) => upsertWorkspace(current, result.workspace))
+        const canonicalWorkspaces = await repository.listWorkspaces()
+        const canonicalWorkspace = canonicalWorkspaces.find(
+          (workspace) => workspace.id === result.workspace.id,
+        )
+        if (!canonicalWorkspace) {
+          throw new Error('The workspace membership could not be verified.')
+        }
+        setWorkspaces(canonicalWorkspaces)
         setJoinNotice({
-          workspaceName: result.workspace.name,
-          role: result.workspace.role,
+          workspaceName: canonicalWorkspace.name,
+          role: canonicalWorkspace.role,
         })
-        selectWorkspace(result.workspace.id)
+        selectWorkspace(canonicalWorkspace.id)
       }
       return result
+    } catch (caughtError) {
+      setError(toMessage(caughtError))
+      throw caughtError
+    } finally {
+      setIsSaving(false)
+    }
+  }
+
+  async function deleteWorkspace(workspaceId: string) {
+    setIsSaving(true)
+    setError(null)
+    try {
+      await repository.deleteWorkspace(workspaceId)
+      setWorkspaces((current) => current.filter((workspace) => workspace.id !== workspaceId))
+      if (workspaceInvite?.workspaceId === workspaceId) setWorkspaceInvite(null)
+      selectWorkspace(null)
     } catch (caughtError) {
       setError(toMessage(caughtError))
       throw caughtError
@@ -163,6 +193,7 @@ export function WorkspaceProvider({ children }: PropsWithChildren) {
     loadWorkspaceInvite,
     rotateWorkspaceInvite,
     joinWithInviteCode,
+    deleteWorkspace,
     clearWorkspaceInvite,
     clearJoinNotice: () => setJoinNotice(null),
     clearError: () => setError(null),
@@ -170,16 +201,6 @@ export function WorkspaceProvider({ children }: PropsWithChildren) {
   }
 
   return <WorkspaceContext.Provider value={value}>{children}</WorkspaceContext.Provider>
-}
-
-function upsertWorkspace(
-  workspaces: Workspace[],
-  workspace: Workspace,
-): Workspace[] {
-  const withoutWorkspace = workspaces.filter((item) => item.id !== workspace.id)
-  return [...withoutWorkspace, workspace].sort((a, b) =>
-    a.name.localeCompare(b.name),
-  )
 }
 
 function toMessage(error: unknown): string {

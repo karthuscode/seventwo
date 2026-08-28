@@ -165,12 +165,16 @@ export class SupabaseRepository implements AppRepository {
       ]),
     )
     return (workspaces as WorkspaceRow[])
-      .map((row) => ({
-        id: row.id,
-        name: row.name,
-        createdAt: row.created_at,
-        role: roles.get(row.id) ?? 'HOST',
-      }))
+      .flatMap((row) => {
+        const role = roles.get(row.id)
+        if (!role) return []
+        return [{
+          id: row.id,
+          name: row.name,
+          createdAt: row.created_at,
+          role,
+        }]
+      })
       .sort((a, b) => a.name.localeCompare(b.name))
   }
 
@@ -633,6 +637,35 @@ export class SupabaseRepository implements AppRepository {
       host_user_id: plan.hostUserId,
       updated_at: plan.updatedAt,
     }).eq('id', plan.id).eq('workspace_id', plan.workspaceId)
+    throwIfError(error)
+  }
+
+  async deletePlan(planId: string, workspaceId: string): Promise<void> {
+    const { data: linkedSession, error: sessionError } = await this.client
+      .from('sessions')
+      .select('id')
+      .eq('workspace_id', workspaceId)
+      .eq('plan_id', planId)
+      .maybeSingle()
+    throwIfError(sessionError)
+    if (linkedSession) {
+      throw new Error('This plan already created a session and cannot be deleted.')
+    }
+    const { data, error } = await this.client
+      .from('event_plans')
+      .delete()
+      .eq('id', planId)
+      .eq('workspace_id', workspaceId)
+      .select('id')
+      .single()
+    throwIfError(error)
+    if (!data) throw new Error('Plan could not be deleted.')
+  }
+
+  async deleteWorkspace(workspaceId: string): Promise<void> {
+    const { error } = await this.client.rpc('delete_owned_workspace', {
+      target_workspace_id: workspaceId,
+    })
     throwIfError(error)
   }
 

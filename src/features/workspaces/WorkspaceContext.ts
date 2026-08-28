@@ -16,6 +16,7 @@ export interface WorkspaceContextValue {
   loadWorkspaceInvite: (workspaceId: string) => Promise<void>
   rotateWorkspaceInvite: (workspaceId: string) => Promise<void>
   joinWithInviteCode: (code: string, nickname?: string) => Promise<JoinInviteResult>
+  deleteWorkspace: (workspaceId: string) => Promise<void>
   clearWorkspaceInvite: () => void
   clearJoinNotice: () => void
   clearError: () => void

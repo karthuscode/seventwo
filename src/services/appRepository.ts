@@ -61,6 +61,8 @@ export interface AppRepository {
   createPlan(records: PlanRecords): Promise<void>
   savePlanVote(vote: PlanVote): Promise<void>
   confirmPlan(plan: Plan): Promise<void>
+  deletePlan(planId: string, workspaceId: string): Promise<void>
+  deleteWorkspace(workspaceId: string): Promise<void>
   updateWorkspaceMemberRole(
     workspaceId: string,
     userId: string,

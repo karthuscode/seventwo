@@ -16,7 +16,11 @@ const operatorNavItems = [
 
 function Navigation({ playerView }: { playerView: boolean }) {
   const navItems = playerView
-    ? [{ to: '/', label: 'Plans', symbol: '⌂', end: true }, { to: '/profile', label: 'Profile', symbol: '♙' }]
+    ? [
+        { to: '/', label: 'Plans', symbol: '⌂', end: true },
+        { to: '/players', label: 'Players', symbol: '♙' },
+        { to: '/profile', label: 'Profile', symbol: '◎' },
+      ]
     : operatorNavItems
   return (
     <nav className="flex items-center justify-around gap-1 md:flex-col md:items-stretch md:gap-1.5">

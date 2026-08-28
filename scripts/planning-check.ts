@@ -8,6 +8,7 @@ import {
   defaultPlanSessionPlayerIds,
   rankPlanOptions,
 } from '../src/utils/planning.ts'
+import { readFileSync } from 'node:fs'
 
 const workspaceId = 'workspace'
 const planId = 'plan'
@@ -65,6 +66,14 @@ assert.equal(canRecordVoteForPlayer('PLAYER', 'registered-user', linked), true)
 assert.equal(canRecordVoteForPlayer('PLAYER', 'different-user', linked), false)
 assert.equal(canLinkPlayerIdentity([guest], guest.id, 'registered-user'), true)
 assert.equal(canLinkPlayerIdentity([guest, linked], guest.id, 'registered-user'), false)
+
+const planPage = readFileSync(new URL('../src/pages/PlanDetailPage.tsx', import.meta.url), 'utf8')
+assert.match(planPage, /!player\.userId/, 'Proxy responses must only list unregistered Players.')
+assert.match(planPage, /voteInFlightRef\.current/, 'Vote submission needs a synchronous duplicate-request guard.')
+assert.match(planPage, /data-vote-option-id/, 'Vote controls should expose their option target for interaction QA.')
+assert.match(planPage, /data-vote-player-id/, 'Vote controls should expose their Player target for interaction QA.')
+assert.match(planPage, /grid-cols-2/, 'Narrow vote controls must use a non-squeezed responsive layout.')
+assert.match(planPage, /already created a session and cannot be deleted/, 'Created-session plans must be protected from deletion.')
 
 console.log('Planning calculation checks passed.')
 

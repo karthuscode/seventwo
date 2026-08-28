@@ -39,6 +39,7 @@ export interface AppDataContextValue extends AppData {
     response: PlanVoteResponse,
   ) => Promise<void>
   confirmPlan: (planId: string, optionId: string, hostUserId: string) => Promise<void>
+  deletePlan: (planId: string) => Promise<void>
   updateWorkspaceMemberRole: (userId: string, role: 'HOST' | 'PLAYER') => Promise<void>
   linkPlayerToMember: (playerId: string, userId: string) => Promise<void>
   importLocalData: () => Promise<void>

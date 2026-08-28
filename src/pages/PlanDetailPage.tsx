@@ -1,9 +1,10 @@
-import { useMemo, useState } from 'react'
+import { useMemo, useRef, useState } from 'react'
 import { Link, useNavigate, useParams } from 'react-router-dom'
 import { Button } from '../components/Button'
 import { EmptyState } from '../components/EmptyState'
 import { PageHeader } from '../components/PageHeader'
 import { Modal } from '../components/Modal'
+import { ConfirmModal } from '../components/ConfirmModal'
 import { useAppData } from '../hooks/useAppData'
 import { useAuth } from '../hooks/useAuth'
 import { LOCAL_USER_ID } from '../services/localStorageRepository'
@@ -23,12 +24,15 @@ export function PlanDetailPage() {
   const { user, mode } = useAuth()
   const plan = app.plans.find((item) => item.id === planId)
   const [isSaving, setIsSaving] = useState(false)
+  const [savingVoteKey, setSavingVoteKey] = useState<string | null>(null)
+  const voteInFlightRef = useRef(false)
   const [error, setError] = useState('')
   const [showCreate, setShowCreate] = useState(false)
   const currentUserId = user?.id ?? (mode === 'local' ? LOCAL_USER_ID : '')
   const [hostUserId, setHostUserId] = useState(plan?.hostUserId ?? currentUserId)
   const [expandedBreakdowns, setExpandedBreakdowns] = useState<Set<string>>(new Set())
   const [showUnregisteredManagement, setShowUnregisteredManagement] = useState(false)
+  const [showDeleteConfirm, setShowDeleteConfirm] = useState(false)
   const role = app.workspace.role
   const canManage = role === 'OWNER' || role === 'HOST'
 
@@ -61,10 +65,37 @@ export function PlanDetailPage() {
   }
 
   async function saveVote(optionId: string, playerId: string, response: PlanVoteResponse) {
-    setIsSaving(true); setError('')
+    if (voteInFlightRef.current) return
+    voteInFlightRef.current = true
+    const voteKey = `${optionId}:${playerId}`
+    setSavingVoteKey(voteKey); setError('')
     try { await app.savePlanVote(selectedPlan.id, optionId, playerId, response) }
     catch (caughtError) { setError(caughtError instanceof Error ? caughtError.message : 'Vote failed.') }
-    finally { setIsSaving(false) }
+    finally {
+      voteInFlightRef.current = false
+      setSavingVoteKey(null)
+    }
+  }
+
+  function requestDelete() {
+    if (app.sessions.some((session) => session.planId === selectedPlan.id)) {
+      setError('This plan already created a session and cannot be deleted.')
+      return
+    }
+    setShowDeleteConfirm(true)
+  }
+
+  async function deletePlan() {
+    setIsSaving(true); setError('')
+    try {
+      await app.deletePlan(selectedPlan.id)
+      navigate('/')
+    } catch (caughtError) {
+      setError(caughtError instanceof Error ? caughtError.message : 'Plan deletion failed.')
+    } finally {
+      setIsSaving(false)
+      setShowDeleteConfirm(false)
+    }
   }
 
   async function confirm(optionId: string) {
@@ -125,9 +156,15 @@ export function PlanDetailPage() {
                 return (
                   <div className="mt-4 flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
                     <p className="text-sm font-bold text-ink">Your response</p>
-                    <div className="flex gap-1 rounded-xl bg-black/20 p-1">
-                      {RESPONSES.map((response) => <button key={response.value} type="button" disabled={isSaving} onClick={() => void saveVote(summary.option.id, linkedPlayer.id, response.value)} className={`min-h-10 rounded-lg px-2.5 text-xs font-bold transition ${ownVote?.response === response.value ? 'bg-white/12 text-ink' : 'text-ink-muted hover:text-ink'}`}>{response.label}</button>)}
-                    </div>
+                    <VoteResponseControl
+                      optionId={summary.option.id}
+                      playerId={linkedPlayer.id}
+                      playerName={linkedPlayer.nickname}
+                      selected={ownVote?.response}
+                      disabled={savingVoteKey !== null}
+                      saving={savingVoteKey === `${summary.option.id}:${linkedPlayer.id}`}
+                      onSelect={saveVote}
+                    />
                   </div>
                 )
               })() : null}
@@ -144,8 +181,8 @@ export function PlanDetailPage() {
               </button>
 
               {/* Collapsible breakdown */}
-              <div className={`grid transition-[grid-template-rows,opacity] duration-200 ease-out ${isBreakdownExpanded ? 'grid-rows-[1fr] opacity-100' : 'grid-rows-[0fr] opacity-0'}`} aria-hidden={!isBreakdownExpanded}>
-                <div className="overflow-hidden">
+              {isBreakdownExpanded ? (
+                <div className="section-enter">
                   <div className="space-y-4 border-t border-line/80 pt-4">
                     {responseGroups.available.length ? (
                       <div>
@@ -173,7 +210,7 @@ export function PlanDetailPage() {
                     ) : null}
                   </div>
                 </div>
-              </div>
+              ) : null}
 
               {canManage && plan.status === 'VOTING' ? <Button variant={index === 0 ? 'primary' : 'secondary'} className="mt-4" disabled={isSaving} onClick={() => void confirm(summary.option.id)}>Confirm this time</Button> : null}
             </article>
@@ -194,8 +231,8 @@ export function PlanDetailPage() {
             <span aria-hidden="true" className={`ml-2 inline-block transition-transform ${showUnregisteredManagement ? 'rotate-180' : ''}`}>↓</span>
           </button>
 
-          <div className={`grid transition-[grid-template-rows,opacity] duration-200 ease-out ${showUnregisteredManagement ? 'grid-rows-[1fr] opacity-100' : 'grid-rows-[0fr] opacity-0'}`} aria-hidden={!showUnregisteredManagement}>
-            <div className="overflow-hidden">
+          {showUnregisteredManagement ? (
+            <div className="section-enter">
               {summaries.map((summary) => (
                 <div key={summary.option.id} className="glass-surface mt-3 rounded-2xl p-4">
                   <p className="mb-3 text-sm font-bold text-ink">{formatPlanTime(summary.option.startsAt)}</p>
@@ -208,9 +245,15 @@ export function PlanDetailPage() {
                             <p className="text-sm font-bold text-ink">{player.nickname}</p>
                             <p className="text-[11px] text-ink-muted">Unregistered</p>
                           </div>
-                          <div className="flex gap-1 rounded-xl bg-black/20 p-1">
-                            {RESPONSES.map((response) => <button key={response.value} type="button" disabled={isSaving} onClick={() => void saveVote(summary.option.id, player.id, response.value)} className={`min-h-10 rounded-lg px-2.5 text-xs font-bold transition ${vote?.response === response.value ? 'bg-white/12 text-ink' : 'text-ink-muted hover:text-ink'}`}>{response.label}</button>)}
-                          </div>
+                          <VoteResponseControl
+                            optionId={summary.option.id}
+                            playerId={player.id}
+                            playerName={player.nickname}
+                            selected={vote?.response}
+                            disabled={savingVoteKey !== null}
+                            saving={savingVoteKey === `${summary.option.id}:${player.id}`}
+                            onSelect={saveVote}
+                          />
                         </div>
                       )
                     })}
@@ -218,13 +261,63 @@ export function PlanDetailPage() {
                 </div>
               ))}
             </div>
-          </div>
+          ) : null}
         </section>
       ) : null}
 
       {!linkedPlayer ? <p className="text-sm text-warning">No player profile linked in this workspace.</p> : null}
       {error ? <p role="alert" className="text-sm text-red-300">{error}</p> : null}
+      {canManage ? (
+        <div className="border-t border-line/70 pt-5">
+          <button type="button" onClick={requestDelete} className="min-h-11 rounded-xl px-3 text-sm font-bold text-red-300 transition hover:bg-red-400/8 hover:text-red-200 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-red-300">
+            Delete plan
+          </button>
+        </div>
+      ) : null}
       {showCreate && confirmed ? <CreateFromPlan planId={plan.id} startsAt={confirmed.startsAt} onClose={() => setShowCreate(false)} onCreated={(sessionId) => navigate(`/sessions/${sessionId}/active`)} /> : null}
+      {showDeleteConfirm ? <ConfirmModal title={`Delete ${selectedPlan.title}?`} description="This removes the poll and its responses." confirmLabel="Delete plan" danger isSaving={isSaving} onClose={() => setShowDeleteConfirm(false)} onConfirm={() => void deletePlan()} /> : null}
+    </div>
+  )
+}
+
+function VoteResponseControl({
+  optionId,
+  playerId,
+  playerName,
+  selected,
+  disabled,
+  saving,
+  onSelect,
+}: {
+  optionId: string
+  playerId: string
+  playerName: string
+  selected?: PlanVoteResponse
+  disabled: boolean
+  saving: boolean
+  onSelect: (optionId: string, playerId: string, response: PlanVoteResponse) => Promise<void>
+}) {
+  return (
+    <div
+      role="group"
+      aria-label={`Response for ${playerName}`}
+      aria-busy={saving}
+      className="grid w-full grid-cols-2 gap-2 sm:w-auto sm:grid-cols-3"
+      data-vote-option-id={optionId}
+      data-vote-player-id={playerId}
+    >
+      {RESPONSES.map((response, index) => (
+        <button
+          key={response.value}
+          type="button"
+          disabled={disabled}
+          data-vote-response={response.value}
+          onClick={() => void onSelect(optionId, playerId, response.value)}
+          className={`min-h-11 min-w-0 touch-manipulation rounded-xl px-3 text-xs font-bold transition duration-150 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ink disabled:cursor-wait disabled:opacity-55 ${index === 2 ? 'col-span-2 sm:col-span-1' : ''} ${selected === response.value ? 'bg-white/[0.14] text-ink shadow-[inset_0_1px_0_rgba(255,255,255,0.1)]' : 'bg-black/20 text-ink-muted hover:bg-white/[0.06] hover:text-ink active:bg-white/[0.1]'}`}
+        >
+          {response.label}
+        </button>
+      ))}
     </div>
   )
 }
