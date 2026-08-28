@@ -144,9 +144,14 @@ export class SupabaseRepository implements AppRepository {
   }
 
   async listWorkspaces(): Promise<Workspace[]> {
+    const { data: authData, error: authError } = await this.client.auth.getUser()
+    throwIfError(authError)
+    if (!authData.user) throw new Error('Sign in to load your workspaces.')
+
     const { data: memberships, error: membershipError } = await this.client
       .from('workspace_members')
       .select('workspace_id, role')
+      .eq('user_id', authData.user.id)
       .order('created_at', { ascending: true })
     throwIfError(membershipError)
     if (!memberships?.length) return []

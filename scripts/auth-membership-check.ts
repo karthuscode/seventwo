@@ -20,6 +20,7 @@ assert(!repository.includes("'redeem-invite-code'"), 'The frontend must not call
 assert(!repository.includes("'create-player-invite'"), 'The frontend must not create single-use Player invites.')
 assert(!repository.includes("roles.get(row.id) ??"), 'Workspace roles must never use a fabricated fallback.')
 assert(repository.includes(".from('workspace_members')"), 'Workspace roles must come from workspace_members.')
+assert(repository.includes(".eq('user_id', authData.user.id)"), 'Workspace roles must be scoped to the authenticated membership row.')
 assert(repository.includes("rpc('delete_owned_workspace'"), 'Workspace deletion must use the owner-checked RPC.')
 
 const joinWorkspace = source('../supabase/functions/join-workspace/index.ts')

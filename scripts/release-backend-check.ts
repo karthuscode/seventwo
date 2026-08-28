@@ -36,6 +36,15 @@ try {
   assert.equal(joined.workspace.role, 'PLAYER')
   assert.equal(await membershipRole(joiner, first.workspace.id, joinerUser.id), 'PLAYER')
 
+  const visibleMemberships = await workspaceMemberships(owner, first.workspace.id)
+  assert.deepEqual(
+    new Set(visibleMemberships.map((membership) => membership.role)),
+    new Set(['OWNER', 'PLAYER']),
+  )
+  assert.equal(visibleMemberships.filter((membership) => membership.user_id === ownerUser.id).length, 1)
+  assert.equal((await ownWorkspaceMemberships(owner, ownerUser.id))
+    .find((workspace) => workspace.id === first.workspace.id)?.role, 'OWNER')
+
   const ownerRoster = await roster(owner, first.workspace.id)
   const playerRoster = await roster(joiner, first.workspace.id)
   assert.equal(playerRoster.length, ownerRoster.length)
@@ -116,6 +125,10 @@ try {
   assertNoError(promoted)
   assert.equal(await membershipRole(joiner, first.workspace.id, joinerUser.id), 'HOST')
   assert.equal(await membershipRole(owner, first.workspace.id, ownerUser.id), 'OWNER')
+  assert.equal((await ownWorkspaceMemberships(owner, ownerUser.id))
+    .find((workspace) => workspace.id === first.workspace.id)?.role, 'OWNER')
+  assert.equal((await ownWorkspaceMemberships(joiner, joinerUser.id))
+    .find((workspace) => workspace.id === first.workspace.id)?.role, 'HOST')
 
   assertNoError(await owner.from('players').select('id').eq('workspace_id', first.workspace.id))
   assert.equal(await membershipRole(owner, first.workspace.id, ownerUser.id), 'OWNER')
@@ -208,6 +221,27 @@ async function roster(client: SupabaseClient, workspaceId: string) {
     .order('created_at')
   assertNoError({ error })
   return data ?? []
+}
+
+async function workspaceMemberships(client: SupabaseClient, workspaceId: string) {
+  const { data, error } = await client.from('workspace_members')
+    .select('user_id, role')
+    .eq('workspace_id', workspaceId)
+    .order('created_at')
+  assertNoError({ error })
+  return data ?? []
+}
+
+async function ownWorkspaceMemberships(client: SupabaseClient, userId: string) {
+  const { data, error } = await client.from('workspace_members')
+    .select('workspace_id, role')
+    .eq('user_id', userId)
+    .order('created_at')
+  assertNoError({ error })
+  return (data ?? []).map((membership) => ({
+    id: membership.workspace_id,
+    role: membership.role,
+  }))
 }
 
 async function linkedPlayerCount(
