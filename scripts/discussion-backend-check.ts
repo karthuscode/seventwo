@@ -107,6 +107,10 @@ try {
     user_id: playerUser.id, body: 'I will be 15 minutes late.',
   }))
   assert.equal((await messages(owner, planId)).length, 2)
+  assertNoError(await owner.from('event_plans').update({
+    status: 'CONFIRMED', confirmed_option_id: optionId,
+  }).eq('id', planId))
+  assert.equal((await messages(player, planId)).length, 2, 'Confirmation must keep Discussion accessible.')
 
   const updateDenied = await player.from('plan_messages').update({ body: 'Edited' })
     .eq('id', playerMessageId)
