@@ -31,3 +31,6 @@ verify_jwt = false
 
 [functions.upgrade-anonymous-owner]
 verify_jwt = false
+
+[functions.dispatch-notifications]
+verify_jwt = false

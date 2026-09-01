@@ -1,5 +1,5 @@
-import { useState } from 'react'
-import { NavLink, Outlet } from 'react-router-dom'
+import { useEffect, useState } from 'react'
+import { NavLink, Outlet, useNavigate } from 'react-router-dom'
 import { BrandBackdrop } from './BrandBackdrop'
 import { WorkspaceMenu } from '../features/workspaces/WorkspaceMenu'
 import { useAppData } from '../hooks/useAppData'
@@ -7,6 +7,7 @@ import { AccountModal } from '../features/auth/AccountModal'
 import { InviteModal } from '../features/workspaces/InviteModal'
 import { AccountMenu } from '../features/auth/AccountMenu'
 import { useWorkspaces } from '../hooks/useWorkspaces'
+import { isSafeNotificationDestination } from '../services/pushNotifications'
 
 const operatorNavItems = [
   { to: '/', label: 'Home', symbol: '⌂', end: true },
@@ -48,6 +49,7 @@ function Navigation({ playerView }: { playerView: boolean }) {
 }
 
 export function AppLayout() {
+  const navigate = useNavigate()
   const {
     workspace,
     repositoryKind,
@@ -60,7 +62,38 @@ export function AppLayout() {
   const { joinNotice, clearJoinNotice } = useWorkspaces()
   const [showAccount, setShowAccount] = useState(false)
   const [showInvite, setShowInvite] = useState(false)
+  const [pushNotice, setPushNotice] = useState<{
+    title: string
+    body: string
+    destination: string
+  } | null>(null)
   const playerView = workspace.role === 'PLAYER'
+
+  useEffect(() => {
+    if (!('serviceWorker' in navigator)) return
+    const receivePush = (event: MessageEvent) => {
+      const value = event.data?.notification
+      if (
+        event.data?.type !== 'SEVENTWO_PUSH'
+        || typeof value?.title !== 'string'
+        || typeof value?.body !== 'string'
+        || !isSafeNotificationDestination(value?.destination)
+      ) return
+      setPushNotice({
+        title: value.title.slice(0, 120),
+        body: value.body.slice(0, 240),
+        destination: value.destination,
+      })
+    }
+    navigator.serviceWorker.addEventListener('message', receivePush)
+    return () => navigator.serviceWorker.removeEventListener('message', receivePush)
+  }, [])
+
+  useEffect(() => {
+    if (!pushNotice) return
+    const timeout = window.setTimeout(() => setPushNotice(null), 8_000)
+    return () => window.clearTimeout(timeout)
+  }, [pushNotice])
 
   return (
     <div className="relative min-h-svh bg-app-bg text-ink">
@@ -110,6 +143,15 @@ export function AppLayout() {
             <div role="status" className="glass-success mb-5 flex items-center justify-between gap-3 rounded-xl px-4 py-3">
               <p className="min-w-0 text-sm text-ink"><span className="font-black">Joined {joinNotice.workspaceName}</span><span className="ml-2 text-[10px] font-black tracking-[0.12em] text-positive">{joinNotice.role}</span></p>
               <button type="button" onClick={clearJoinNotice} aria-label="Dismiss join confirmation" className="min-h-8 shrink-0 px-2 text-ink-muted hover:text-ink">×</button>
+            </div>
+          ) : null}
+          {pushNotice ? (
+            <div role="status" className="glass-surface mb-5 flex items-start justify-between gap-3 rounded-xl px-4 py-3">
+              <button type="button" className="min-w-0 text-left" onClick={() => { navigate(pushNotice.destination); setPushNotice(null) }}>
+                <span className="block text-sm font-black text-ink">{pushNotice.title}</span>
+                <span className="mt-1 block text-sm text-ink-secondary">{pushNotice.body}</span>
+              </button>
+              <button type="button" onClick={() => setPushNotice(null)} aria-label="Dismiss notification" className="min-h-8 shrink-0 px-2 text-ink-muted hover:text-ink">×</button>
             </div>
           ) : null}
           {repositoryKind === 'local' ? (

@@ -14,12 +14,13 @@ Depending on how you use the app, SevenTwo may store:
 - Session participation and history
 - Buy-in, rebuy, cash-out, and poker result information
 - Plan and Poll availability responses
+- Notification preferences and device push-subscription details
 
 Workspace owners may also add **UNREGISTERED** players. These players do not have SevenTwo accounts, but limited nickname, session, and poker-result data may be stored as part of the workspace's shared records.
 
 ## Why this data is used
 
-The data is used only to provide SevenTwo's core features: account access, workspace management, live poker-session management, planning and voting, and player statistics and history.
+The data is used only to provide SevenTwo's core features: account access, workspace management, live poker-session management, planning and voting, notifications, and player statistics and history.
 
 SevenTwo does not process card payments, hold player funds, or facilitate real-money online poker. Cash and Card labels record how a home-game group handled money outside the app.
 

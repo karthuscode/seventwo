@@ -20,6 +20,7 @@ export default defineConfig({
         theme_color: '#090a0c',
         background_color: '#090a0c',
         display: 'standalone',
+        id: '/',
         start_url: '/',
         scope: '/',
         orientation: 'portrait-primary',
@@ -34,6 +35,7 @@ export default defineConfig({
       },
       workbox: {
         navigateFallback: '/index.html',
+        importScripts: ['/push-sw.js'],
       },
     }),
   ],

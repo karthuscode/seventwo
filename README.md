@@ -7,7 +7,7 @@ SevenTwo is a mobile-first companion for organizing live Texas Hold'em home game
 ## What it does
 
 - Organizes poker groups with shared workspaces and roles
-- Plans game nights and tracks player availability
+- Plans game nights, tracks availability, and sends optional Web Push reminders
 - Manages players, sessions, buy-ins, rebuys, and payments
 - Handles cash-outs, settlement, history, and player statistics
 - Works as an installable responsive PWA
