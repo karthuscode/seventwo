@@ -12,6 +12,9 @@
     "test:planning": "node --experimental-strip-types scripts/planning-check.ts",
     "test:auth": "node --experimental-strip-types scripts/auth-membership-check.ts",
     "test:notifications": "node --experimental-strip-types scripts/notification-check.ts",
+    "test:onboarding": "node --experimental-strip-types scripts/onboarding-check.ts",
+    "test:discussion": "node --experimental-strip-types scripts/discussion-check.ts",
+    "test:discussion:backend": "node --experimental-strip-types scripts/discussion-backend-check.ts",
     "preview": "vite preview"
   },
   "dependencies": {

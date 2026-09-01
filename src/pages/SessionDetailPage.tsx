@@ -70,6 +70,7 @@ export function SessionDetailPage() {
   return (
     <div className="section-enter space-y-9">
       <Link to="/history" className="text-sm font-bold text-ink-secondary transition hover:text-ink">← Session history</Link>
+      {session.planId ? <Link to={`/plans/${session.planId}`} className="block text-sm font-bold text-ink-secondary transition hover:text-ink">View Plan discussion →</Link> : null}
       <PageHeader
         eyebrow="Session record"
         title={session.name}

@@ -99,6 +99,15 @@ export interface PlanVote {
   updatedAt: string
 }
 
+export interface PlanMessage {
+  id: string
+  workspaceId: string
+  planId: string
+  userId: string
+  body: string
+  createdAt: string
+}
+
 export interface WorkspaceInviteResult {
   workspaceId: string
   inviteCode: string

@@ -91,7 +91,7 @@ export function NotificationSettings({ eligible }: { eligible: boolean }) {
     && !setupBlockedOnIOS && !permissionDenied
 
   return (
-    <section className="glass-surface rounded-2xl p-5 sm:p-6">
+    <section id="notifications" tabIndex={-1} className="glass-surface scroll-mt-6 rounded-2xl p-5 outline-none sm:p-6">
       <div className="flex items-start justify-between gap-4">
         <div>
           <p className="section-label">Notifications</p>

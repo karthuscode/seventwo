@@ -5,6 +5,7 @@ import { EmptyState } from '../components/EmptyState'
 import { PageHeader } from '../components/PageHeader'
 import { Modal } from '../components/Modal'
 import { ConfirmModal } from '../components/ConfirmModal'
+import { PlanDiscussion } from '../features/plans/PlanDiscussion'
 import { useAppData } from '../hooks/useAppData'
 import { useAuth } from '../hooks/useAuth'
 import { LOCAL_USER_ID } from '../services/localStorageRepository'
@@ -21,7 +22,7 @@ export function PlanDetailPage() {
   const { planId } = useParams()
   const navigate = useNavigate()
   const app = useAppData()
-  const { user, mode } = useAuth()
+  const { user, mode, isRegistered } = useAuth()
   const plan = app.plans.find((item) => item.id === planId)
   const [isSaving, setIsSaving] = useState(false)
   const [savingVoteKey, setSavingVoteKey] = useState<string | null>(null)
@@ -263,6 +264,16 @@ export function PlanDetailPage() {
             </div>
           ) : null}
         </section>
+      ) : null}
+
+      {isRegistered && mode === 'supabase' ? (
+        <PlanDiscussion
+          planId={selectedPlan.id}
+          workspaceId={selectedPlan.workspaceId}
+          currentUserId={currentUserId}
+          players={app.players}
+          currentUserName={typeof user?.user_metadata.display_name === 'string' && user.user_metadata.display_name.trim() ? user.user_metadata.display_name.trim() : 'Registered player'}
+        />
       ) : null}
 
       {!linkedPlayer ? <p className="text-sm text-warning">No player profile linked in this workspace.</p> : null}

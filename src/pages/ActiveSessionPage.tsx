@@ -174,6 +174,11 @@ export function ActiveSessionPage() {
       <Link to="/" className="text-sm font-bold text-ink-secondary transition hover:text-ink">
         ← Dashboard
       </Link>
+      {session.planId ? (
+        <Link to={`/plans/${session.planId}`} className="block text-sm font-bold text-ink-secondary transition hover:text-ink">
+          View Plan discussion →
+        </Link>
+      ) : null}
       <PageHeader
         eyebrow="Live session"
         title={session.name}

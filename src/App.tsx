@@ -19,10 +19,11 @@ import { PlanDetailPage } from './pages/PlanDetailPage'
 import { ProfilePage } from './pages/ProfilePage'
 import { useAppData } from './hooks/useAppData'
 import { AuthScreen } from './features/auth/AuthScreen'
+import { OnboardingProvider } from './features/onboarding/OnboardingProvider'
 
 const router = createBrowserRouter([
   {
-    element: <AppLayout />,
+    element: <OnboardingProvider><AppLayout /></OnboardingProvider>,
     children: [
       { path: '/', element: <DashboardPage /> },
       { path: '/players', element: <PlayersPage /> },
